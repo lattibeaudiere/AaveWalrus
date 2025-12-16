@@ -1,0 +1,8 @@
+{
+  "address": "0x3c18113c1142ac80cA3e842f54ab50181b41055a",
+  "network": "Arbitrum One",
+  "chainId": 42161,
+  "purpose": "Atomist role for IPOR Fusion Vault (Fuse management)",
+  "createdAt": "2025-11-02T20:57:10.897Z",
+  "keystoreFile": "atomist-3c18113c.json"
+}

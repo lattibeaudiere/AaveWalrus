@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Reactive Network Live Monitor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    body {
+      margin: 0;
+      background: #0b1120;
+      color: #f8fafc;
+    }
+    .container {
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 2rem;
+      width: 100%;
+    }
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 1rem;
+    }
+    .card {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(51, 65, 85, 0.7);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 20px 45px -25px rgba(15, 23, 42, 0.7);
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.4rem;
+      color: #94a3b8;
+    }
+    input {
+      width: 100%;
+      padding: 0.65rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: rgba(15, 23, 42, 0.6);
+      color: #e2e8f0;
+      margin-bottom: 1rem;
+      transition: border 0.2s ease;
+    }
+    input:focus {
+      outline: none;
+      border-color: #38bdf8;
+    }
+    button {
+      background: linear-gradient(135deg, #38bdf8, #6366f1);
+      border: none;
+      color: white;
+      font-weight: 600;
+      padding: 0.75rem 1.5rem;
+      border-radius: 9999px;
+      cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 18px 35px -20px rgba(96, 165, 250, 0.8);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.25rem;
+    }
+    .full-width {
+      grid-column: 1 / -1;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    th, td {
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+      vertical-align: top;
+    }
+    th {
+      text-align: left;
+      font-size: 0.8rem;
+      letter-spacing: 0.05rem;
+      text-transform: uppercase;
+      color: #94a3b8;
+      font-weight: 600;
+      background: rgba(15, 23, 42, 0.4);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    tbody tr:hover {
+      background: rgba(30, 41, 59, 0.6);
+    }
+    tbody tr {
+      transition: background 0.2s ease;
+    }
+    .status {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      color: #cbd5f5;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.45rem 0.8rem;
+      background: rgba(37, 99, 235, 0.15);
+      border: 1px solid rgba(96, 165, 250, 0.35);
+      border-radius: 9999px;
+      font-size: 0.8rem;
+    }
+    .log-panel {
+      max-height: 600px;
+      overflow-y: auto;
+      overflow-x: auto;
+      scrollbar-width: thin;
+    }
+    .log-panel::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    .log-panel::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.4);
+      border-radius: 6px;
+    }
+    .log-panel::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.6);
+    }
+    .log-panel::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.3);
+    }
+    a {
+      color: #38bdf8;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .muted {
+      color: #94a3b8;
+    }
+    @media (max-width: 640px) {
+      .container {
+        padding: 1.5rem 1.2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Reactive Network Live Monitor</h1>
+    <div class="card">
+      <form id="config-form">
+        <label for="reactiveRpc">Reactive RPC URL</label>
+        <input id="reactiveRpc" type="text" value="https://mainnet-rpc.rnk.dev" required />
+
+        <label for="rscAddress">Reactive Contract Address</label>
+        <input id="rscAddress" type="text" value="0xbc183f419B48D4fd5Ad4e375e198ECc0fd48d8A5" required />
+
+        <label for="adapterRpc">Adapter RPC URL (Arbitrum)</label>
+        <input id="adapterRpc" type="text" value="https://arb1.arbitrum.io/rpc" required />
+
+        <label for="adapterAddress">Adapter Contract Address</label>
+        <input id="adapterAddress" type="text" value="0x58DB4C40CE50FEfAD8EEaA0B609e12dE21b18805" required />
+
+        <div style="display:flex; gap:0.75rem; flex-wrap: wrap; align-items: center;">
+          <button type="submit" id="start-button">Start Streaming</button>
+          <button type="button" id="test-button" style="background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(96, 165, 250, 0.5);">Test Connection</button>
+          <span class="muted" id="status-text">Waiting to start…</span>
+        </div>
+      </form>
+    </div>
+
+    <div class="card" style="margin-top: 1rem;">
+      <h2 style="margin-top:0;">Fund RSC Contract</h2>
+      <div style="display:flex; gap:0.75rem; flex-wrap: wrap; align-items: center; margin-bottom: 0.75rem;">
+        <label for="fundAmount" style="margin:0;">Amount (REACT):</label>
+        <input id="fundAmount" type="number" step="0.001" min="0" value="1.0" style="width: 120px; padding: 0.5rem; border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 0.375rem; background: rgba(15, 23, 42, 0.5); color: #cbd5f5;" />
+        <button type="button" id="fund-button" style="background: rgba(34, 197, 94, 0.2); border: 1px solid rgba(74, 222, 128, 0.5);">Fund Contract</button>
+        <button type="button" id="check-status-button" style="background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(96, 165, 250, 0.5);">Check Status</button>
+      </div>
+      <div id="fund-status" class="muted" style="font-size: 0.875rem;"></div>
+      <div id="wallet-info" class="muted" style="font-size: 0.875rem; margin-top: 0.5rem;"></div>
+    </div>
+
+    <div class="grid" style="margin-top: 1.5rem;">
+      <div class="card full-width">
+        <h2 style="margin-top:0; font-size: 1.5rem; margin-bottom: 1rem;">APY Monitoring (Reactive Network)</h2>
+        <div class="status">
+          <span class="chip">⚡ ReactHandled: <span id="react-count">0</span></span>
+          <span class="chip">🔁 APY Queries: <span id="callback-count">0</span></span>
+          <span class="chip">📈 StrategyUpdate: <span id="strategy-count">0</span></span>
+          <span class="chip">📊 Total Events: <span id="total-logs">0</span></span>
+          <span class="chip">Latest block: <span id="reactive-block">–</span></span>
+        </div>
+        <div class="log-panel">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:140px; min-width: 140px;">Type</th>
+                <th style="width:280px; min-width: 280px;">Block / Transaction</th>
+                <th style="min-width: 400px;">APY Details</th>
+              </tr>
+            </thead>
+            <tbody id="reactive-events"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 style="margin-top:0;">Adapter Executions (Arbitrum)</h2>
+        <div class="status">
+          <span class="chip"> ReactionExecuted: <span id="adapter-count">0</span></span>
+          <span class="chip">Latest block: <span id="adapter-block"></span></span>
+        </div>
+        <div class="log-panel">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:110px;">Status</th>
+                <th>Block / Tx</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody id="adapter-events"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script>
+    (() => {
+      if (!window.ethers) {
+        console.error('ethers.js failed to load');
+        document.getElementById('status-text').textContent = 'Error: ethers.js library failed to load';
+        return;
+      }
+      const { ethers } = window.ethers;
+      const SELECTORS = {
+        form: document.getElementById('config-form'),
+        startButton: document.getElementById('start-button'),
+        testButton: document.getElementById('test-button'),
+        fundButton: document.getElementById('fund-button'),
+        checkStatusButton: document.getElementById('check-status-button'),
+        fundAmount: document.getElementById('fundAmount'),
+        fundStatus: document.getElementById('fund-status'),
+        walletInfo: document.getElementById('wallet-info'),
+        statusText: document.getElementById('status-text'),
+        reactiveBody: document.getElementById('reactive-events'),
+        adapterBody: document.getElementById('adapter-events'),
+        reactCount: document.getElementById('react-count'),
+        callbackCount: document.getElementById('callback-count'),
+        strategyCount: document.getElementById('strategy-count'),
+        adapterCount: document.getElementById('adapter-count'),
+        totalLogs: document.getElementById('total-logs'),
+        reactiveBlock: document.getElementById('reactive-block'),
+        adapterBlock: document.getElementById('adapter-block'),
+      };
+
+      const state = {
+        running: false,
+        reactiveProvider: null,
+        adapterProvider: null,
+        config: null,
+        reactiveInterval: null,
+        adapterInterval: null,
+            lastAdapterBlock: null,
+            noEventsWarningShown: false,
+            lastProcessedTxHash: null,
+        reactHandledTopic: ethers.utils.id('ReactHandled(uint256,address,uint256,uint256)'),
+        callbackTopic: ethers.utils.id('Callback(uint256,address,uint64,bytes)'),
+        strategyUpdateTopic: ethers.utils.id('StrategyUpdate(uint256,uint256,uint256,bool)'),
+        reactionExecutedTopic: ethers.utils.id('ReactionExecuted(address,address,uint256,bool,bytes)'),
+        ifaceReactive: new ethers.utils.Interface([
+          'event ReactHandled(uint256 chainId,address emitter,uint256 txHash,uint256 logIndex)',
+          'event Callback(uint256 indexed chain_id,address indexed _contract,uint64 indexed gas_limit,bytes payload)',
+          'event StrategyUpdate(uint256 aaveApy,uint256 compoundApy,uint256 spread,bool rebalanced)'
+        ]),
+        ifaceAdapter: new ethers.utils.Interface([
+          'event ReactionExecuted(address indexed rsc,address indexed vault,uint256 indexed chainId,bool success,bytes data)'
+        ]),
+        counts: {
+          reactHandled: 0,
+          callback: 0,
+          strategyUpdate: 0,
+          adapter: 0,
+        },
+        // Track last APY values per asset for change calculation
+        lastApyValues: {},
+        // Track displayed events to avoid duplicates across polls
+        displayedEvents: new Set(),
+        // Wallet address for Reactscan URLs (RVM address, NOT RSC address)
+        // CRITICAL: Reactscan requires wallet address from REACTIVE_PRIVATE_KEY
+        walletAddress: null,
+        // Known asset addresses
+        knownAssets: {
+          '0xaf88d065e77c8cc2239327c5edb3a432268e5831': { name: 'USDC', symbol: 'USDC', type: 'Stablecoin' },
+          '0x82af49447d8a07e3bd95bd0d56f35241523fbab1': { name: 'WETH', symbol: 'WETH', type: 'Native Token' },
+          '0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f': { name: 'WBTC', symbol: 'WBTC', type: 'Bitcoin' },
+          '0xda10009cbd5d07dd0cecc66161fc93d7c9000da1': { name: 'DAI', symbol: 'DAI', type: 'Stablecoin' },
+          '0xff970a61a04b1ca14834a43f5de4533ebddb5cc8': { name: 'USDC.e', symbol: 'USDC.e', type: 'Stablecoin' }
+        },
+      };
+
+      function logMessage(message, level = 'info') {
+        SELECTORS.statusText.textContent = message;
+        if (level === 'error') {
+          SELECTORS.statusText.style.color = '#f87171';
+        } else {
+          SELECTORS.statusText.style.color = '#cbd5f5';
+        }
+      }
+
+      function formatTimeAgo(seconds) {
+        if (seconds < 60) {
+          return `${seconds}s ago`;
+        } else if (seconds < 3600) {
+          const minutes = Math.floor(seconds / 60);
+          return `${minutes}m ago`;
+        } else if (seconds < 86400) {
+          const hours = Math.floor(seconds / 3600);
+          return `${hours}h ago`;
+        } else {
+          const days = Math.floor(seconds / 86400);
+          return `${days}d ago`;
+        }
+      }
+
+      function formatHex(value) {
+        try {
+          const hex = ethers.BigNumber.from(value).toHexString();
+          return hex;
+        } catch (err) {
+          return String(value);
+        }
+      }
+
+      function appendRow(targetBody, cells) {
+        const tr = document.createElement('tr');
+        cells.forEach((cell) => {
+          const td = document.createElement('td');
+          td.innerHTML = cell;
+          tr.appendChild(td);
+        });
+        targetBody.prepend(tr);
+        while (targetBody.children.length > 60) {
+          targetBody.removeChild(targetBody.lastChild);
+        }
+      }
+
+      async function pollReactive() {
+        try {
+          const rscAddress = state.config.rsc;
+          
+          if (!rscAddress) {
+            console.error('❌ No RSC address configured');
+            logMessage('Error: No RSC address configured', 'error');
+            return;
+          }
+          
+          // Use server API to get events via Reactive Network custom RPC methods
+          const response = await fetch('/api/rsc-events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              rscAddress: rscAddress,
+              limit: 50 // Get last 50 transactions
+            })
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API error: ${response.status} ${response.statusText} - ${errorText}`);
+          }
+
+          const data = await response.json();
+          
+          if (!data) {
+            console.error('❌ No data returned from API');
+            return;
+          }
+          
+          // Store wallet address for Reactscan URLs (CRITICAL: Reactscan requires wallet address, NOT RSC address)
+          const walletAddress = data.metadata?.walletAddress || data.walletAddress;
+          if (walletAddress && !state.walletAddress) {
+            // Only log once when wallet address is first received
+            state.walletAddress = walletAddress;
+            console.log(`✅ Wallet address for Reactscan URLs: ${walletAddress}`);
+          } else if (walletAddress) {
+            state.walletAddress = walletAddress;
+          } else if (!state.walletAddress) {
+            // Only log error once if wallet address is missing
+            console.error('❌ No wallet address provided by server - Reactscan URLs will NOT work');
+          }
+          
+          // Display summary statistics if available
+          if (data.summary) {
+            const summary = data.summary;
+            console.log(`📊 Summary: ${summary.totalEvents} events (ReactHandled: ${summary.byType.ReactHandled}, Callback: ${summary.byType.Callback}, StrategyUpdate: ${summary.byType.StrategyUpdate})`);
+            if (summary.rebalances > 0) {
+              console.log(`✅ Rebalances: ${summary.rebalances}`);
+            }
+            if (summary.apyStats) {
+              if (summary.apyStats.aave) {
+                console.log(`💰 Aave APY: ${summary.apyStats.aave.latest.toFixed(2)}% (avg: ${summary.apyStats.aave.avg.toFixed(2)}%)`);
+              }
+              if (summary.apyStats.compound) {
+                console.log(`💎 Compound APY: ${summary.apyStats.compound.latest.toFixed(2)}% (avg: ${summary.apyStats.compound.avg.toFixed(2)}%)`);
+              }
+            }
+          }
+          
+          // Only log when there are events or significant changes
+          if (data.events && data.events.length > 0) {
+            console.log(`📊 Found ${data.count} events from ${data.transactionsQueried} transactions`);
+          }
+
+          if (data.events && data.events.length > 0) {
+            // Process events (they're already sorted most recent first from server)
+            // Filter out already displayed events and get only new ones
+            const newEvents = data.events.filter((event) => {
+              const key = `${event.transactionHash}-${event.topics[0]}`;
+              return !state.displayedEvents.has(key);
+            });
+            
+            // Reverse new events so when we prepend, newest stays at top
+            // (Server sends newest first, so reverse to process oldest first, then prepend = newest first in display)
+            const eventsToProcess = [...newEvents].reverse();
+            
+            eventsToProcess.forEach((event) => {
+              const key = `${event.transactionHash}-${event.topics[0]}`;
+              
+              // Mark as displayed
+              state.displayedEvents.add(key);
+              
+              // Keep displayed events set manageable (keep last 1000)
+              if (state.displayedEvents.size > 1000) {
+                const entries = Array.from(state.displayedEvents);
+                entries.slice(0, 100).forEach(k => state.displayedEvents.delete(k));
+              }
+
+              // Convert to log format for handleReactiveLog
+              const log = {
+                blockNumber: event.blockNumber || 0,
+                transactionHash: event.transactionHash,
+                transactionNumber: event.transactionNumber,  // Add transaction number for Reactscan links
+                topics: event.topics,
+                data: event.data,
+                address: event.address,
+                originEvent: event.originEvent || null,  // Preserve origin Aave event data
+                callbackData: event.callbackData || null,  // Preserve decoded callback data
+                apyQuery: event.apyQuery || null,  // Preserve decoded APY query data
+                strategyUpdate: event.strategyUpdate || null,  // NEW: Strategy update data
+                receivedAt: event.receivedAt || null,  // NEW: Server-side timestamp
+                correlationId: event.correlationId || null,  // NEW: Event correlation ID
+                eventType: event.eventType || null  // NEW: Event type from server
+              };
+
+              handleReactiveLog(log);
+            });
+            
+            if (newEvents.length > 0) {
+              console.log(`✨ Added ${newEvents.length} new event${newEvents.length > 1 ? 's' : ''} (${data.events.length - newEvents.length} already displayed)`);
+            }
+
+            SELECTORS.totalLogs.textContent = (parseInt(SELECTORS.totalLogs.textContent) || 0) + newEvents.length;
+            state.noEventsWarningShown = false; // Reset warning if we found events
+          } else {
+            if (!state.noEventsWarningShown) {
+              if (data.message) {
+                console.log('ℹ️ No events:', data.message);
+              } else if (data.events && data.events.length === 0) {
+                console.log('ℹ️ No new events (all events already displayed)');
+              }
+              state.noEventsWarningShown = true;
+            }
+          }
+
+          // Update block display (use headNumber from metadata if available)
+          const headNumber = data.metadata?.headNumber || data.headNumber;
+          if (headNumber) {
+            SELECTORS.reactiveBlock.textContent = `Tx #${parseInt(headNumber, 16)}`;
+          }
+        } catch (error) {
+          console.error('❌ Reactive poll error:', error);
+          logMessage(`Reactive poll error: ${error.message}`, 'error');
+          // Don't stop polling on error, just log it
+        }
+      }
+
+      function handleReactiveLog(log) {
+        // Use eventType from server if available, otherwise determine from topic0
+        const topic0 = log.topics[0];
+        const eventType = log.eventType || (topic0 === state.reactHandledTopic ? 'ReactHandled' : (topic0 === state.callbackTopic ? 'Callback' : (topic0 === state.strategyUpdateTopic ? 'StrategyUpdate' : 'Unknown')));
+        const timestamp = new Date().toISOString();
+        
+        if (eventType === 'ReactHandled' || topic0 === state.reactHandledTopic) {
+          const decoded = state.ifaceReactive.decodeEventLog('ReactHandled', log.data, log.topics);
+          state.counts.reactHandled += 1;
+          SELECTORS.reactCount.textContent = state.counts.reactHandled;
+
+          const originTx = formatHex(decoded.txHash);
+          
+          // Check if we have origin event data from the server
+          let originEventHtml = '';
+          if (log.originEvent) {
+            const aaveEvent = log.originEvent;
+            const reserveDataUpdatedTopic = ethers.utils.id('ReserveDataUpdated(address,uint256,uint256,uint256,uint256,uint256)');
+            
+            originEventHtml = `<br/><br/><div style="border-left: 3px solid #60a5fa; padding-left: 12px; margin-top: 8px; background: rgba(96, 165, 250, 0.1); padding: 10px; border-radius: 6px;">`;
+            originEventHtml += `<strong style="color: #60a5fa;">📡 Original Aave Event (Arbitrum):</strong><br/>`;
+            originEventHtml += `Contract: <code style="font-size: 0.85rem;">${aaveEvent.address}</code><br/>`;
+            originEventHtml += `Block: <a href="https://arbiscan.io/block/${aaveEvent.blockNumber}" target="_blank" style="color: #60a5fa;">${aaveEvent.blockNumber}</a><br/>`;
+            originEventHtml += `TX: <a href="https://arbiscan.io/tx/${aaveEvent.transactionHash}" target="_blank" style="color: #60a5fa;">${aaveEvent.transactionHash.slice(0, 16)}…</a><br/>`;
+            originEventHtml += `Log Index: ${aaveEvent.logIndex}<br/>`;
+            originEventHtml += `<br/><strong style="color: #94a3b8;">Event Topics:</strong><br/>`;
+            
+            // Decode topics
+            if (aaveEvent.topics && aaveEvent.topics.length > 0) {
+            aaveEvent.topics.forEach((topic, idx) => {
+              if (idx === 0) {
+                  originEventHtml += `Topic0 (Event Signature): <code style="font-size: 0.75rem; word-break: break-all;">${topic}</code><br/>`;
+                if (topic === reserveDataUpdatedTopic) {
+                    originEventHtml += `  → <strong style="color: #34d399;">ReserveDataUpdated</strong> event detected<br/>`;
+                }
+              } else if (topic && topic !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+                // Decode topic1 as address (reserve)
+                if (idx === 1) {
+                  const reserveAddr = '0x' + topic.slice(-40);
+                    originEventHtml += `Topic1 (Reserve Address): <code style="font-size: 0.85rem;">${reserveAddr}</code><br/>`;
+                    // Check if it's USDC
+                    if (reserveAddr.toLowerCase() === '0xaf88d065e77c8cc2239327c5edb3a432268e5831') {
+                      originEventHtml += `  → <strong style="color: #34d399;">USDC</strong> reserve<br/>`;
+                    }
+                } else {
+                    originEventHtml += `Topic${idx}: <code style="font-size: 0.75rem; word-break: break-all;">${topic}</code><br/>`;
+                }
+              }
+            });
+            }
+            
+            // Use pre-decoded data from server if available, otherwise decode locally
+            if (aaveEvent.decoded) {
+              // Use server-decoded data (enhanced)
+              const decoded = aaveEvent.decoded;
+              originEventHtml += `<br/><strong style="color: #94a3b8;">📊 Decoded Event Data:</strong><br/>`;
+              if (decoded.liquidityRatePercent !== undefined) {
+                originEventHtml += `💰 Liquidity Rate (Supply APY): <strong style="color: #34d399;">${decoded.liquidityRatePercent.toFixed(4)}%</strong> (${decoded.liquidityRateBps} bps)<br/>`;
+              }
+              if (decoded.stableBorrowRatePercent !== undefined) {
+                originEventHtml += `📈 Stable Borrow Rate: <strong style="color: #94a3b8;">${decoded.stableBorrowRatePercent.toFixed(4)}%</strong> (${decoded.stableBorrowRateBps} bps)<br/>`;
+              }
+              if (decoded.variableBorrowRatePercent !== undefined) {
+                originEventHtml += `📉 Variable Borrow Rate: <strong style="color: #94a3b8;">${decoded.variableBorrowRatePercent.toFixed(4)}%</strong> (${decoded.variableBorrowRateBps} bps)<br/>`;
+              }
+              if (decoded.reserve) {
+                originEventHtml += `🪙 Reserve: <code style="font-size: 0.85rem;">${decoded.reserve}</code><br/>`;
+              }
+              if (decoded.liquidityIndex) {
+                originEventHtml += `📊 Liquidity Index: ${decoded.liquidityIndex}<br/>`;
+              }
+              if (decoded.variableBorrowIndex) {
+                originEventHtml += `📊 Variable Borrow Index: ${decoded.variableBorrowIndex}<br/>`;
+              }
+            } else if (aaveEvent.data && aaveEvent.data !== '0x' && aaveEvent.topics && aaveEvent.topics[0] === reserveDataUpdatedTopic) {
+              // Fallback: decode locally if server didn't provide decoded data
+              try {
+                const aaveIface = new ethers.utils.Interface([
+                  'event ReserveDataUpdated(address indexed reserve, uint256 liquidityRate, uint256 stableBorrowRate, uint256 variableBorrowRate, uint256 liquidityIndex, uint256 variableBorrowIndex)'
+                ]);
+                const decoded = aaveIface.decodeEventLog('ReserveDataUpdated', aaveEvent.data, aaveEvent.topics);
+                const RAY = ethers.BigNumber.from(10).pow(27);
+                const liquidityRatePercent = decoded.liquidityRate.mul(100).div(RAY);
+                const stableBorrowRatePercent = decoded.stableBorrowRate.mul(100).div(RAY);
+                const variableBorrowRatePercent = decoded.variableBorrowRate.mul(100).div(RAY);
+                
+                const liquidityRatePercentReadable = parseFloat(liquidityRatePercent.toString()) / 100;
+                const stableBorrowRatePercentReadable = parseFloat(stableBorrowRatePercent.toString()) / 100;
+                const variableBorrowRatePercentReadable = parseFloat(variableBorrowRatePercent.toString()) / 100;
+                
+                originEventHtml += `<br/><strong style="color: #94a3b8;">Decoded Event Data:</strong><br/>`;
+                originEventHtml += `Liquidity Rate (Supply APY): ${decoded.liquidityRate.toString()}<br/>`;
+                originEventHtml += `  → <strong style="color: #34d399;">${liquidityRatePercentReadable.toFixed(4)}%</strong> (${liquidityRatePercent.toString()} bps)<br/>`;
+                originEventHtml += `Stable Borrow Rate: ${decoded.stableBorrowRate.toString()}<br/>`;
+                originEventHtml += `  → <strong style="color: #94a3b8;">${stableBorrowRatePercentReadable.toFixed(4)}%</strong> (${stableBorrowRatePercent.toString()} bps)<br/>`;
+                originEventHtml += `Variable Borrow Rate: ${decoded.variableBorrowRate.toString()}<br/>`;
+                originEventHtml += `  → <strong style="color: #94a3b8;">${variableBorrowRatePercentReadable.toFixed(4)}%</strong> (${variableBorrowRatePercent.toString()} bps)<br/>`;
+                originEventHtml += `Liquidity Index: ${decoded.liquidityIndex.toString()}<br/>`;
+                originEventHtml += `Variable Borrow Index: ${decoded.variableBorrowIndex.toString()}<br/>`;
+              } catch (decodeError) {
+                originEventHtml += `<br/><strong style="color: #94a3b8;">Event Data (Raw):</strong><br/>`;
+                originEventHtml += `<code style="font-size: 0.7rem; word-break: break-all; color: #94a3b8;">${aaveEvent.data}</code>`;
+              }
+            } else if (aaveEvent.data && aaveEvent.data !== '0x') {
+              originEventHtml += `<br/><strong style="color: #94a3b8;">Event Data (Raw):</strong><br/>`;
+              originEventHtml += `<code style="font-size: 0.7rem; word-break: break-all; color: #94a3b8;">${aaveEvent.data}</code>`;
+            }
+            
+            originEventHtml += `</div>`;
+          } else if (log.originTxHash) {
+            originEventHtml = `<br/><br/>Origin TX: <a href="https://arbiscan.io/tx/${log.originTxHash}" target="_blank" style="color: #60a5fa;">${log.originTxHash.slice(0, 16)}…</a>`;
+          } else {
+            // Show link to Arbitrum explorer using the decoded txHash (fallback)
+            try {
+              const txHashHex = '0x' + decoded.txHash.toString(16).padStart(64, '0');
+              originEventHtml = `<br/><br/>Origin TX: <a href="https://arbiscan.io/tx/${txHashHex}" target="_blank" style="color: #60a5fa;">${txHashHex.slice(0, 16)}…</a>`;
+            } catch (e) {
+              // If we can't format the hash, just show the raw value
+            }
+          }
+          
+          // Construct Reactscan URL - MUST use wallet address (RVM address), NOT RSC address
+          // Working format: https://reactscan.net/address/{walletAddress}/{txNumber}
+          let reactscanUrl = '';
+          let reactscanText = log.transactionHash.slice(0, 10) + '…';
+          
+          try {
+            if (log.transactionNumber && state.walletAddress) {
+              // Use wallet address (RVM address) - this is what Reactscan expects
+              const walletAddr = state.walletAddress.toLowerCase();
+              const txNum = parseInt(log.transactionNumber, 16);
+              reactscanUrl = `https://reactscan.net/address/${walletAddr}/${txNum}`;
+              // Removed verbose logging - only log on errors
+            } else {
+              // If wallet address not available, show transaction hash for manual search
+              reactscanUrl = `#`;
+              console.warn(`Cannot create Reactscan URL: wallet address or transaction number missing. TX: ${log.transactionHash}`);
+            }
+          } catch (e) {
+            console.error('Error constructing Reactscan URL:', e);
+            reactscanUrl = `#`;
+          }
+          
+          // Transaction hash display
+          const txHashDisplay = log.transactionHash.length > 20 
+            ? `${log.transactionHash.slice(0, 20)}…`
+            : log.transactionHash;
+          
+          const reactscanLink = reactscanUrl !== '#' 
+            ? `<a href="${reactscanUrl}" target="_blank" rel="noopener" style="color: #60a5fa; text-decoration: underline;" title="View on Reactscan: ${log.transactionHash}">${reactscanText}</a>`
+            : `<span style="color: #94a3b8;">${reactscanText}</span> <small style="color: #f59e0b;">(wallet address needed)</small>`;
+          
+          // Enhanced display with correlation ID and timestamp
+          let enhancedInfo = '';
+          if (log.correlationId) {
+            enhancedInfo += `<br/><small style="color: #64748b; font-size: 0.65rem;">🔗 Correlation: ${log.correlationId.slice(0, 20)}…</small>`;
+          }
+          if (log.receivedAt) {
+            const receivedDate = new Date(log.receivedAt * 1000);
+            enhancedInfo += `<br/><small style="color: #64748b; font-size: 0.65rem;">⏰ Received: ${receivedDate.toLocaleTimeString()}</small>`;
+          }
+          
+          appendRow(SELECTORS.reactiveBody, [
+            `<strong style="color: #34d399;">ReactHandled</strong>`,
+            `Block ${log.blockNumber}<br/>
+             ${reactscanLink}<br/>
+             <small style="color: #94a3b8; font-size: 0.65rem; font-family: monospace; word-break: break-all;">
+               Hash: ${txHashDisplay}<br/>
+               ${log.transactionNumber ? `TX #: ${parseInt(log.transactionNumber, 16)}` : ''}
+             </small>${enhancedInfo}`,
+            `Chain: ${decoded.chainId.toString()}<br/>Emitter: <code>${decoded.emitter}</code><br/>Origin TX: <code>${originTx}</code><br/>Log index: ${decoded.logIndex.toString()}${originEventHtml}`,
+          ]);
+        } else if (eventType === 'StrategyUpdate' || topic0 === state.strategyUpdateTopic) {
+          // Handle StrategyUpdate events
+          const decoded = state.ifaceReactive.decodeEventLog('StrategyUpdate', log.data, log.topics);
+          state.counts.strategyUpdate = (state.counts.strategyUpdate || 0) + 1;
+          if (SELECTORS.strategyCount) SELECTORS.strategyCount.textContent = state.counts.strategyUpdate;
+          
+          // Use server-decoded data if available, otherwise use local decode
+          const strategyData = log.strategyUpdate || {
+            aaveApyBps: decoded.aaveApy.toString(),
+            aaveApyPercent: parseFloat(decoded.aaveApy.toString()) / 100,
+            compoundApyBps: decoded.compoundApy.toString(),
+            compoundApyPercent: parseFloat(decoded.compoundApy.toString()) / 100,
+            spreadBps: decoded.spread.toString(),
+            spreadPercent: parseFloat(decoded.spread.toString()) / 100,
+            rebalanced: decoded.rebalanced,
+            direction: decoded.aaveApy.gt(decoded.compoundApy) ? 'AaveToCompound' : (decoded.compoundApy.gt(decoded.aaveApy) ? 'CompoundToAave' : 'Equal'),
+            higherApy: decoded.aaveApy.gt(decoded.compoundApy) ? 'Aave' : (decoded.compoundApy.gt(decoded.aaveApy) ? 'Compound' : 'Equal')
+          };
+          
+          // Construct Reactscan URL
+          let reactscanUrl = '';
+          let reactscanText = log.transactionHash.slice(0, 10) + '…';
+          try {
+            if (log.transactionNumber && state.walletAddress) {
+              const walletAddr = state.walletAddress.toLowerCase();
+              const txNum = parseInt(log.transactionNumber, 16);
+              reactscanUrl = `https://reactscan.net/address/${walletAddr}/${txNum}`;
+            } else {
+              reactscanUrl = `#`;
+            }
+          } catch (e) {
+            reactscanUrl = `#`;
+          }
+          
+          const reactscanLink = reactscanUrl !== '#' 
+            ? `<a href="${reactscanUrl}" target="_blank" rel="noopener" style="color: #60a5fa; text-decoration: underline;" title="View on Reactscan">${reactscanText}</a>`
+            : `<span style="color: #94a3b8;">${reactscanText}</span>`;
+          
+          // Enhanced info
+          let enhancedInfo = '';
+          if (log.correlationId) {
+            enhancedInfo += `<br/><small style="color: #64748b; font-size: 0.65rem;">🔗 Correlation: ${log.correlationId.slice(0, 20)}…</small>`;
+          }
+          if (log.receivedAt) {
+            const receivedDate = new Date(log.receivedAt * 1000);
+            enhancedInfo += `<br/><small style="color: #64748b; font-size: 0.65rem;">⏰ Received: ${receivedDate.toLocaleTimeString()}</small>`;
+          }
+          
+          const rebalanceIcon = strategyData.rebalanced ? '✅' : '⏸️';
+          const rebalanceColor = strategyData.rebalanced ? '#34d399' : '#94a3b8';
+          const rebalanceText = strategyData.rebalanced ? 'REBALANCED' : 'NO REBALANCE';
+          
+          const strategyHtml = `
+            <div style="padding: 1rem; background: linear-gradient(135deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.4)); border-radius: 10px; border-left: 4px solid ${rebalanceColor};">
+              <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+                <span style="font-size: 1.5rem;">${rebalanceIcon}</span>
+                <strong style="color: ${rebalanceColor}; font-size: 1.1rem;">${rebalanceText}</strong>
+                ${strategyData.rebalanced ? `<span style="color: #94a3b8; font-size: 0.85rem;">→ ${strategyData.direction}</span>` : ''}
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+                <div style="background: rgba(96, 165, 250, 0.1); padding: 0.75rem; border-radius: 8px;">
+                  <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Aave APY</div>
+                  <strong style="color: #60a5fa; font-size: 1.1rem;">${strategyData.aaveApyPercent.toFixed(2)}%</strong>
+                  <span style="color: #64748b; font-size: 0.7rem;"> (${strategyData.aaveApyBps} bps)</span>
+                </div>
+                <div style="background: rgba(139, 92, 246, 0.1); padding: 0.75rem; border-radius: 8px;">
+                  <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Compound APY</div>
+                  <strong style="color: #8b5cf6; font-size: 1.1rem;">${strategyData.compoundApyPercent.toFixed(2)}%</strong>
+                  <span style="color: #64748b; font-size: 0.7rem;"> (${strategyData.compoundApyBps} bps)</span>
+                </div>
+              </div>
+              <div style="background: rgba(148, 163, 184, 0.1); padding: 0.75rem; border-radius: 8px;">
+                <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Spread</div>
+                <strong style="color: #cbd5e1; font-size: 1rem;">${strategyData.spreadPercent.toFixed(2)}%</strong>
+                <span style="color: #64748b; font-size: 0.7rem;"> (${strategyData.spreadBps} bps)</span>
+                <div style="color: #94a3b8; font-size: 0.7rem; margin-top: 0.25rem;">Higher APY: <strong>${strategyData.higherApy}</strong></div>
+              </div>
+            </div>
+          `;
+          
+          appendRow(SELECTORS.reactiveBody, [
+            `<div style="display: flex; flex-direction: column; gap: 0.25rem;">
+              <strong style="color: ${rebalanceColor}; font-size: 0.95rem;">StrategyUpdate</strong>
+              <span style="color: #94a3b8; font-size: 0.75rem;">${rebalanceText}</span>
+            </div>`,
+            `<div style="display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.85rem;">
+              <div>
+                <span style="color: #94a3b8; font-size: 0.75rem;">Block:</span>
+                <strong style="color: #e2e8f0; margin-left: 0.5rem;">${log.blockNumber}</strong>
+              </div>
+              <div>
+                ${reactscanLink}
+                ${log.transactionNumber ? `<span style="color: #64748b; font-size: 0.75rem; margin-left: 0.5rem;">(TX #${parseInt(log.transactionNumber, 16)})</span>` : ''}
+              </div>
+              ${enhancedInfo ? `<div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(148, 163, 184, 0.1);">${enhancedInfo}</div>` : ''}
+            </div>`,
+            strategyHtml
+          ]);
+        } else if (eventType === 'Callback' || topic0 === state.callbackTopic) {
+          const decoded = state.ifaceReactive.decodeEventLog('Callback', log.data, log.topics);
+          state.counts.callback += 1;
+          SELECTORS.callbackCount.textContent = state.counts.callback;
+
+          // Use pre-decoded APY query data from server if available, otherwise decode locally
+          let displayInfo = null;
+          
+          if (log.apyQuery) {
+            // Use pre-decoded data from server
+            const assetAddr = log.apyQuery.assetAddress ? log.apyQuery.assetAddress.toLowerCase() : null;
+            const asset = assetAddr ? state.knownAssets[assetAddr] : null;
+            
+            if (asset) {
+              const apyPercent = log.apyQuery.apyPercent;
+              // Use transaction timestamp if available (Reactive Network time), otherwise use query timestamp
+              const timestamp = log.apyQuery.transactionTimestamp || log.apyQuery.queryTimestamp || (log.receivedAt || Math.floor(Date.now() / 1000));
+              const eventTime = new Date(timestamp * 1000);
+              
+              // Calculate time ago
+              const now = new Date();
+              const diffSeconds = Math.floor((now - eventTime) / 1000);
+              const timeAgo = formatTimeAgo(diffSeconds);
+              
+              // Calculate APY change
+              const assetKey = assetAddr;
+              const lastApy = state.lastApyValues[assetKey];
+              let apyChange = null;
+              
+              if (lastApy !== undefined && lastApy !== null) {
+                const change = apyPercent - lastApy;
+                apyChange = {
+                  value: change,
+                  percent: Math.abs(change),
+                  isPositive: change > 0
+                };
+              }
+              
+              // Store current APY for next comparison
+              state.lastApyValues[assetKey] = apyPercent;
+              
+              // Use protocol from server if available, otherwise default to Aave
+              const protocol = log.apyQuery.protocol || 'Aave';
+              
+              displayInfo = {
+                asset: asset,
+                assetAddr: assetAddr,
+                apy: apyPercent,
+                apyBps: log.apyQuery.apyBps,
+                timestamp: timestamp,
+                eventTime: eventTime,
+                timeAgo: timeAgo,
+                apyChange: apyChange,
+                protocol: protocol
+              };
+            }
+          } else {
+            // Fallback: Try to decode locally if server didn't provide decoded data
+            try {
+              const payload = decoded.payload;
+              
+              if (payload && payload.length >= 266) {
+                const functionSelector = payload.slice(0, 10);
+                
+                if (functionSelector === '0xeb45e4d1') {
+                  const paramData = payload.slice(10);
+                  
+                  if (paramData.length >= 256) {
+                    const param2Hex = paramData.slice(64, 128);
+                    const assetAddr = '0x' + param2Hex.slice(-40).toLowerCase();
+                    const asset = state.knownAssets[assetAddr];
+                    
+                    if (asset) {
+                      const param3 = ethers.BigNumber.from('0x' + paramData.slice(128, 192));
+                      const param4 = ethers.BigNumber.from('0x' + paramData.slice(192, 256));
+                      
+                      const apyBps = param3.toNumber();
+                      const apyPercent = apyBps / 100;
+                      // Use current time as fallback (payload timestamp is from Arbitrum query, not RN transaction)
+                      const timestamp = Math.floor(Date.now() / 1000);
+                      const eventTime = new Date(timestamp * 1000);
+                      
+                      const now = new Date();
+                      const diffSeconds = Math.floor((now - eventTime) / 1000);
+                      const timeAgo = formatTimeAgo(diffSeconds);
+                      
+                      const assetKey = assetAddr;
+                      const lastApy = state.lastApyValues[assetKey];
+                      let apyChange = null;
+                      
+                      if (lastApy !== undefined && lastApy !== null) {
+                        const change = apyPercent - lastApy;
+                        apyChange = {
+                          value: change,
+                          percent: Math.abs(change),
+                          isPositive: change > 0
+                        };
+                      }
+                      
+                      state.lastApyValues[assetKey] = apyPercent;
+                      
+                      displayInfo = {
+                        asset: asset,
+                        assetAddr: assetAddr,
+                        apy: apyPercent,
+                        apyBps: apyBps,
+                        timestamp: timestamp,
+                        eventTime: eventTime,
+                        timeAgo: timeAgo,
+                        apyChange: apyChange,
+                        protocol: 'Aave'
+                      };
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              console.log('Could not decode APY query:', e.message);
+            }
+          }
+          
+          // Display in human-readable format
+          if (displayInfo) {
+            const changeDisplay = displayInfo.apyChange 
+              ? `<span style="color: ${displayInfo.apyChange.isPositive ? '#34d399' : '#f87171'}; font-weight: 600; font-size: 0.9rem;">
+                   ${displayInfo.apyChange.isPositive ? '+' : ''}${displayInfo.apyChange.percent.toFixed(2)}%
+                 </span>`
+              : '<span style="color: #94a3b8; font-size: 0.85rem;">—</span>';
+            
+              const detailsHtml = `
+              <div style="display: flex; align-items: center; gap: 1.5rem; padding: 1rem 1.25rem; background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.5)); border-radius: 12px; border-left: 4px solid #60a5fa; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);">
+                <div style="flex: 1; min-width: 0;">
+                  <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
+                    <span style="font-size: 1.4rem; font-weight: 700; color: #e2e8f0; letter-spacing: 0.5px;">${displayInfo.asset.symbol}</span>
+                    <span style="font-size: 0.75rem; color: #cbd5e1; background: ${displayInfo.protocol === 'Aave' ? 'rgba(96, 165, 250, 0.2)' : 'rgba(139, 92, 246, 0.2)'}; padding: 0.25rem 0.75rem; border-radius: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid ${displayInfo.protocol === 'Aave' ? 'rgba(96, 165, 250, 0.4)' : 'rgba(139, 92, 246, 0.4)'};">${displayInfo.protocol}</span>
+                  </div>
+                  <div style="display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: baseline; gap: 0.5rem;">
+                      <strong style="color: #60a5fa; font-size: 1.4rem; font-weight: 700; line-height: 1.2;">${displayInfo.apy.toFixed(2)}%</strong>
+                      <span style="color: #94a3b8; font-size: 0.9rem; font-weight: 500;">APY</span>
+                    </div>
+                    <span style="color: #64748b; font-size: 0.85rem;">(${displayInfo.apyBps} bps)</span>
+                    ${displayInfo.apyChange ? `<span style="margin-left: 0.5rem;">${changeDisplay}</span>` : ''}
+                  </div>
+                </div>
+                <div style="text-align: right; font-size: 0.85rem; color: #94a3b8; min-width: 120px; padding-left: 1rem; border-left: 1px solid rgba(148, 163, 184, 0.2);">
+                  <div style="font-weight: 600; color: #cbd5e1; margin-bottom: 0.3rem; font-size: 0.9rem;">${displayInfo.timeAgo}</div>
+                  <div style="font-size: 0.75rem; color: #64748b; font-family: monospace;">${displayInfo.eventTime.toLocaleTimeString()}</div>
+                </div>
+              </div>
+            `;
+            
+            // Construct Reactscan URL - MUST use wallet address (RVM), NOT RSC address
+            // Reactscan requires wallet address: https://reactscan.net/address/{walletAddress}/{txNumber}
+            let reactscanUrl = '';
+            try {
+              if (log.transactionNumber && state.walletAddress) {
+                // Use wallet address (RVM address) - this is what Reactscan expects
+                const walletAddr = state.walletAddress.toLowerCase();
+                const txNum = parseInt(log.transactionNumber, 16);
+                reactscanUrl = `https://reactscan.net/address/${walletAddr}/${txNum}`;
+                // Removed verbose logging - only log on errors
+            } else {
+                // Cannot create URL without wallet address
+                reactscanUrl = `#`;
+                console.warn(`Cannot create Reactscan URL: wallet address or transaction number missing. Wallet: ${state.walletAddress}, TX#: ${log.transactionNumber}`);
+            }
+          } catch (e) {
+              console.error('Error constructing Reactscan URL:', e);
+              reactscanUrl = `#`;
+            }
+            
+            // Show transaction info with Reactscan link
+            const txHashDisplay = log.transactionHash;
+            const txHashShort = txHashDisplay.slice(0, 10) + '…';
+            const txNumInfo = log.transactionNumber ? ` (TX #${parseInt(log.transactionNumber, 16)})` : '';
+            
+            const reactscanLink = reactscanUrl !== '#' 
+              ? `<a href="${reactscanUrl}" target="_blank" rel="noopener" style="color: #60a5fa; text-decoration: underline; font-size: 0.75rem;" onclick="console.log('Opening Reactscan: ${reactscanUrl}'); return true;" title="View on Reactscan${txNumInfo}">${txHashShort}</a>`
+              : `<span style="color: #94a3b8; font-size: 0.75rem;">${txHashShort}</span> <small style="color: #f59e0b; font-size: 0.65rem;">(no wallet addr)</small>`;
+            
+          // Enhanced info for APY queries
+          let enhancedInfo = '';
+          if (log.correlationId) {
+            enhancedInfo += `<br/><small style="color: #64748b; font-size: 0.65rem;">🔗 Correlation: ${log.correlationId.slice(0, 20)}…</small>`;
+          }
+          if (log.receivedAt) {
+            const receivedDate = new Date(log.receivedAt * 1000);
+            enhancedInfo += `<br/><small style="color: #64748b; font-size: 0.65rem;">⏰ Received: ${receivedDate.toLocaleTimeString()}</small>`;
+          }
+          if (log.callbackData && log.callbackData.action) {
+            enhancedInfo += `<br/><small style="color: #94a3b8; font-size: 0.65rem;">⚡ Action: ${log.callbackData.action}${log.callbackData.actionType ? ` (${log.callbackData.actionType})` : ''}</small>`;
+          }
+          
+          appendRow(SELECTORS.reactiveBody, [
+              `<div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                <strong style="color: #6366f1; font-size: 0.95rem;">APY Query</strong>
+                <span style="color: #94a3b8; font-size: 0.75rem;">${displayInfo.protocol || 'Aave'}</span>
+              </div>`,
+              `<div style="display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.85rem;">
+                <div>
+                  <span style="color: #94a3b8; font-size: 0.75rem;">Block:</span>
+                  <strong style="color: #e2e8f0; margin-left: 0.5rem;">${log.blockNumber}</strong>
+                </div>
+                <div>
+                  ${reactscanLink}
+                  ${txNumInfo ? `<span style="color: #64748b; font-size: 0.75rem; margin-left: 0.5rem;">${txNumInfo}</span>` : ''}
+                </div>
+                <div style="margin-top: 0.5rem;">
+                  <small style="color: #64748b; font-size: 0.7rem; font-family: monospace; word-break: break-all; display: block; line-height: 1.4;">
+                    ${txHashDisplay}
+                  </small>
+                </div>
+                ${enhancedInfo ? `<div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(148, 163, 184, 0.1);">${enhancedInfo}</div>` : ''}
+              </div>`,
+              detailsHtml
+            ]);
+          } else {
+            // Fallback: Show original detailed display for non-APY callbacks
+            const contractAddr = decoded._contract;
+            
+            // Construct Reactscan URL - MUST use wallet address (RVM), NOT RSC address
+            let reactscanUrl = '';
+            try {
+              if (log.transactionNumber && state.walletAddress) {
+                // Use wallet address (RVM address) - this is what Reactscan expects
+                const walletAddr = state.walletAddress.toLowerCase();
+                const txNum = parseInt(log.transactionNumber, 16);
+                reactscanUrl = `https://reactscan.net/address/${walletAddr}/${txNum}`;
+                // Removed verbose logging - only log on errors
+              } else {
+                // Cannot create URL without wallet address
+                reactscanUrl = `#`;
+                console.warn(`Cannot create Reactscan URL: wallet address or transaction number missing. Wallet: ${state.walletAddress}, TX#: ${log.transactionNumber}`);
+              }
+            } catch (e) {
+              console.error('Error constructing Reactscan URL:', e);
+              reactscanUrl = `#`;
+            }
+            
+            const reactscanLink = reactscanUrl !== '#' 
+              ? `<a href="${reactscanUrl}" target="_blank" rel="noopener" style="color: #60a5fa; text-decoration: underline;" title="Transaction: ${log.transactionHash}">${log.transactionHash.slice(0, 10)}…</a>`
+              : `<span style="color: #94a3b8;">${log.transactionHash.slice(0, 10)}…</span> <small style="color: #f59e0b;">(no wallet addr)</small>`;
+            
+            appendRow(SELECTORS.reactiveBody, [
+              `<strong style="color: #6366f1;">Callback</strong>`,
+              `Block ${log.blockNumber}<br/>${reactscanLink}`,
+              `Chain: ${decoded.chain_id.toString()}<br/>Contract: <code>${contractAddr}</code><br/>Gas: ${decoded.gas_limit.toString()}<br/>Payload: ${decoded.payload.length} bytes`
+            ]);
+          }
+        }
+      }
+
+      async function pollAdapter() {
+        try {
+          const latest = await state.adapterProvider.getBlockNumber();
+          if (state.lastAdapterBlock === null) {
+            state.lastAdapterBlock = latest - 20;
+          }
+          const fromBlock = Math.max(0, state.lastAdapterBlock + 1);
+          const toBlock = latest;
+          if (toBlock < fromBlock) return;
+
+          const topics = [state.reactionExecutedTopic];
+          if (state.config.rsc) {
+            topics.push(ethers.utils.hexZeroPad(state.config.rsc, 32));
+          }
+          const filter = {
+            address: state.config.adapter,
+            topics,
+            fromBlock,
+            toBlock,
+          };
+          const logs = await state.adapterProvider.getLogs(filter);
+
+          if (logs.length > 0) {
+            console.log(`Found ${logs.length} adapter events`);
+          logs.forEach((log) => handleAdapterLog(log));
+          }
+          state.lastAdapterBlock = toBlock;
+          SELECTORS.adapterBlock.textContent = toBlock.toString();
+        } catch (error) {
+          console.error('Adapter poll error:', error);
+          logMessage(`Adapter poll error: ${error.message}`, 'error');
+        }
+      }
+
+      function handleAdapterLog(log) {
+        const decoded = state.ifaceAdapter.decodeEventLog('ReactionExecuted', log.data, log.topics);
+        state.counts.adapter += 1;
+        SELECTORS.adapterCount.textContent = state.counts.adapter;
+
+        const payloadPreview = decoded.data.length > 66 ? `${decoded.data.slice(0, 66)}` : decoded.data;
+        appendRow(SELECTORS.adapterBody, [
+          decoded.success ? '<span style="color:#34d399;">Success</span>' : '<span style="color:#f87171;">Failed</span>',
+          `Block ${log.blockNumber}<br/><a href="https://arbiscan.io/tx/${log.transactionHash}" target="_blank" rel="noopener">${log.transactionHash.slice(0, 10)}</a>`,
+          `RSC: <code>${decoded.rsc}</code><br/>Vault: <code>${decoded.vault}</code><br/>Chain: ${decoded.chainId.toString()}<br/>Payload: <code>${payloadPreview}</code>`,
+        ]);
+      }
+
+      function stopStreams() {
+        if (state.reactiveInterval) clearInterval(state.reactiveInterval);
+        if (state.adapterInterval) clearInterval(state.adapterInterval);
+        state.reactiveInterval = null;
+        state.adapterInterval = null;
+        state.running = false;
+        SELECTORS.startButton.textContent = 'Start Streaming';
+        logMessage('Streams stopped.');
+      }
+
+      function startStreams(config) {
+        stopStreams();
+        state.running = true;
+        state.config = config;
+        state.reactiveProvider = new ethers.providers.JsonRpcProvider(config.reactiveRpc);
+        state.adapterProvider = new ethers.providers.JsonRpcProvider(config.adapterRpc);
+        state.lastAdapterBlock = null;
+        state.lastProcessedTxHash = null;
+        state.counts = { reactHandled: 0, callback: 0, strategyUpdate: 0, adapter: 0 };
+        state.noEventsWarningShown = false;
+        SELECTORS.reactiveBody.innerHTML = '';
+        SELECTORS.adapterBody.innerHTML = '';
+        SELECTORS.reactCount.textContent = '0';
+        SELECTORS.callbackCount.textContent = '0';
+        if (SELECTORS.strategyCount) SELECTORS.strategyCount.textContent = '0';
+        SELECTORS.adapterCount.textContent = '0';
+        SELECTORS.totalLogs.textContent = '0';
+        SELECTORS.reactiveBlock.textContent = '–';
+        SELECTORS.adapterBlock.textContent = '–';
+        // Reset APY tracking
+        state.lastApyValues = {};
+        // Reset displayed events tracking
+        state.displayedEvents.clear();
+
+        SELECTORS.startButton.textContent = 'Stop Streaming';
+        logMessage('Streaming... (checking every 2 seconds)');
+        console.log('📡 Starting polling intervals...');
+        console.log('📡 RSC Address:', config.rsc);
+        console.log('📡 Reactive RPC:', config.reactiveRpc);
+        
+        // Initial poll
+        pollReactive().catch(err => {
+          console.error('❌ Initial reactive poll failed:', err);
+          logMessage(`Error: ${err.message}`, 'error');
+        });
+        pollAdapter().catch(err => {
+          console.error('❌ Initial adapter poll failed:', err);
+        });
+        
+        // Set up polling intervals
+        state.reactiveInterval = setInterval(() => {
+          if (!state.running) {
+            console.log('⚠️ Streaming stopped, clearing interval');
+            clearInterval(state.reactiveInterval);
+            return;
+          }
+          pollReactive().catch(err => {
+            console.error('❌ Reactive poll failed:', err);
+            // Don't spam error messages, just log to console
+          });
+        }, 2000);
+        
+        state.adapterInterval = setInterval(() => {
+          if (!state.running) {
+            clearInterval(state.adapterInterval);
+            return;
+          }
+          pollAdapter().catch(err => {
+            console.error('❌ Adapter poll failed:', err);
+          });
+        }, 2000);
+        
+        console.log('✅ Polling intervals started');
+      }
+
+      function updateFundStatus(message, isError = false) {
+        SELECTORS.fundStatus.innerHTML = message;
+        SELECTORS.fundStatus.style.color = isError ? '#f87171' : '#cbd5f5';
+      }
+
+      function updateWalletInfo(message) {
+        SELECTORS.walletInfo.textContent = message;
+      }
+
+      async function fundContract() {
+        const amount = parseFloat(SELECTORS.fundAmount.value);
+        if (!amount || amount <= 0) {
+          updateFundStatus('❌ Please enter a valid amount', true);
+          return;
+        }
+
+        try {
+          updateFundStatus(`📤 Funding contract with ${amount} REACT...`);
+          
+          const rscAddress = document.getElementById('rscAddress').value.trim();
+          
+          const response = await fetch('/api/fund', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rscAddress, amount })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || 'Funding failed');
+          }
+
+          updateFundStatus(
+            `✅ Deposit successful! Debt automatically settled.<br/>` +
+            `Tx: <a href="https://reactscan.net/tx/${data.txHash}" target="_blank" style="color: #60a5fa;">${data.txHash.slice(0, 10)}...</a>`
+          );
+
+          updateWalletInfo(`Using wallet: ${data.walletAddress.slice(0, 6)}...${data.walletAddress.slice(-4)}`);
+          
+          // Update status display
+          updateFundStatus(
+            `✅ Deposit successful! Debt automatically settled.<br/>` +
+            `Tx: <a href="https://reactscan.net/tx/${data.txHash}" target="_blank" style="color: #60a5fa;">${data.txHash.slice(0, 10)}...</a><br/>` +
+            `<br/>📊 Final Status:<br/>` +
+            `&nbsp;&nbsp;&nbsp;Balance: ${data.balance} REACT<br/>` +
+            `&nbsp;&nbsp;&nbsp;Debt: ${data.debt} REACT`
+          );
+        } catch (error) {
+          console.error('Funding error:', error);
+          updateFundStatus(`❌ Funding failed: ${error.message}`, true);
+        }
+      }
+
+      async function checkContractStatus() {
+        try {
+          const rscAddress = document.getElementById('rscAddress').value.trim();
+          
+          updateFundStatus('Checking contract status...');
+          
+          const response = await fetch('/api/status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rscAddress })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || 'Status check failed');
+          }
+
+          updateFundStatus(
+            `📊 Contract Status:<br/>` +
+            `&nbsp;&nbsp;&nbsp;Balance: ${data.balance} REACT<br/>` +
+            `&nbsp;&nbsp;&nbsp;Debt: ${data.debt} REACT`
+          );
+        } catch (error) {
+          console.error('Status check error:', error);
+          updateFundStatus(`❌ Status check failed: ${error.message}`, true);
+        }
+      }
+
+      // Load wallet address on page load
+      async function loadWalletInfo() {
+        try {
+          const response = await fetch('/api/wallet');
+          if (response.ok) {
+            const data = await response.json();
+            updateWalletInfo(`Using wallet: ${data.address.slice(0, 6)}...${data.address.slice(-4)} (from .env)`);
+          }
+        } catch (error) {
+          // Server might not be running or endpoint not available
+          console.log('Could not load wallet info:', error.message);
+        }
+      }
+
+      // Load wallet info when page loads
+      loadWalletInfo();
+
+      SELECTORS.fundButton.addEventListener('click', fundContract);
+      SELECTORS.checkStatusButton.addEventListener('click', checkContractStatus);
+
+      SELECTORS.testButton.addEventListener('click', async () => {
+        const reactiveRpc = document.getElementById('reactiveRpc').value.trim();
+        const rsc = document.getElementById('rscAddress').value.trim();
+        
+        logMessage('Testing connection...');
+        try {
+          const testProvider = new ethers.providers.JsonRpcProvider(reactiveRpc);
+          const blockNumber = await testProvider.getBlockNumber();
+          logMessage(`✅ Connected! Latest block: ${blockNumber}`);
+          
+          // Try to get contract code
+          const code = await testProvider.getCode(rsc);
+          if (code === '0x') {
+            logMessage(`⚠️ Contract not found at ${rsc}`, 'error');
+          } else {
+            logMessage(`✅ Contract exists (code length: ${code.length})`);
+          }
+          
+          // Try to query logs
+          const latest = await testProvider.getBlockNumber();
+          const logs = await testProvider.getLogs({
+            address: rsc,
+            fromBlock: latest - 100,
+            toBlock: latest
+          });
+          logMessage(`✅ Found ${logs.length} logs in last 100 blocks`);
+          
+          if (logs.length > 0) {
+            console.log('Sample log:', logs[0]);
+            const topics = new Set();
+            logs.forEach(log => {
+              if (log.topics[0]) topics.add(log.topics[0]);
+            });
+            console.log('Unique Topic0 values:', Array.from(topics));
+          }
+        } catch (error) {
+          console.error('Test error:', error);
+          if (error.message.includes('CORS') || error.message.includes('Access-Control')) {
+            logMessage('❌ CORS error - RPC endpoint blocks browser requests', 'error');
+          } else {
+            logMessage(`❌ Test failed: ${error.message}`, 'error');
+          }
+        }
+      });
+
+      SELECTORS.form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        if (state.running) {
+          stopStreams();
+          return;
+        }
+        const config = {
+          reactiveRpc: document.getElementById('reactiveRpc').value.trim(),
+          rsc: document.getElementById('rscAddress').value.trim(),
+          adapterRpc: document.getElementById('adapterRpc').value.trim(),
+          adapter: document.getElementById('adapterAddress').value.trim(),
+        };
+        try {
+          ethers.utils.getAddress(config.rsc);
+        } catch (validationError) {
+          logMessage(`Invalid address: ${validationError.message}`, 'error');
+          return;
+        }
+        if (!config.adapter) {
+          logMessage('Adapter address required.', 'error');
+          return;
+        }
+        try {
+          ethers.utils.getAddress(config.adapter);
+        } catch (adapterErr) {
+          logMessage(`Invalid adapter address: ${adapterErr.message}`, 'error');
+          return;
+        }
+
+        localStorage.setItem('reactive-monitor-config', JSON.stringify(config));
+        logMessage('Connecting to RPC endpoints');
+        startStreams(config);
+      });
+
+      // restore from local storage if available
+      try {
+        const saved = localStorage.getItem('reactive-monitor-config');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.reactiveRpc) document.getElementById('reactiveRpc').value = parsed.reactiveRpc;
+          if (parsed.rsc) document.getElementById('rscAddress').value = parsed.rsc;
+          if (parsed.adapterRpc) document.getElementById('adapterRpc').value = parsed.adapterRpc;
+          if (parsed.adapter) document.getElementById('adapterAddress').value = parsed.adapter;
+        }
+      } catch (err) {
+        console.warn('Failed to parse saved config', err);
+      }
+
+      window.addEventListener('beforeunload', () => {
+        if (state.running) {
+          stopStreams();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+{
+  "name": "fusion-vault",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "node": "hardhat node",
+    "deploy:vault": "hardhat run scripts/deployIPORVault.js --network arbitrum",
+    "deploy:mainnet": "hardhat run scripts/deployMainnet.js --network arbitrum",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "grant:role": "hardhat run scripts/grantAlphaRole.js --network arbitrum",
+    "check:status": "hardhat run scripts/checkStatus.js --network arbitrum",
+    "deploy:queryhelper": "hardhat run scripts/deployQueryHelper.js --network arbitrum",
+    "deploy:rsc": "cd reactive && forge script script/DeployRSC.s.sol:DeployRSC --rpc-url ${REACTIVE_RPC} --broadcast --private-key ${REACTIVE_PRIVATE_KEY}",
+    "setup": "node scripts/fundAndCoverDebt.js && node scripts/subscribeToQueryHelper.js && node scripts/registerRSC.js",
+    "monitor": "node scripts/liveMonitor.js",
+    "health": "node scripts/healthReport.js",
+    "profit": "node scripts/calcProfit.js",
+    "alerts": "node scripts/setupAlerts.js",
+    "deploy:full": "npm run deploy:queryhelper && npm run deploy:rsc && npm run setup",
+    "status": "node scripts/quickStatus.js",
+    "victory": "echo 🎉 Yields incoming! 🚀",
+    "server": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "@openzeppelin/contracts": "^5.4.0",
+    "dotenv": "^17.2.3",
+    "hardhat": "^2.26.0"
+  },
+  "dependencies": {
+    "ethers": "^5.7.2",
+    "express": "^4.21.2"
+  }
+}

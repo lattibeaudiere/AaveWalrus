@@ -1,0 +1,8 @@
+{
+  "address": "0xd176EE757f1cA33fa7b720DCf16715b84E85A90A",
+  "network": "Arbitrum One",
+  "chainId": 42161,
+  "purpose": "Guardian role for IPOR Fusion Vault",
+  "createdAt": "2025-11-02T20:39:54.716Z",
+  "keystoreFile": "guardian-d176EE75.json"
+}
