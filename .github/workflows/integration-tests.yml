@@ -1,0 +1,41 @@
+name: Integration tests (gated)
+
+# This workflow is gated (manual trigger) because it runs against real network
+# resources and requires secrets. It is intended to be run manually via
+# the GitHub Actions UI (workflow_dispatch) and to use a protected environment
+# (see .github/INTEGRATION.md for required secrets and setup).
+
+on:
+  workflow_dispatch:
+
+jobs:
+  integration:
+    name: Run integration tests (manual)
+    runs-on: ubuntu-latest
+    # Use an environment so repository admins can require reviewers/approvals
+    environment: integration
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r storage/requirements.txt pytest
+
+      - name: Run SEAL integration test
+        env:
+          # Real network settings - MUST be provided via repository secrets
+          WALRUS_FAKE: 'false'
+          SEAL_ENABLED: 'true'
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SEAL_WRAPPER_URL: ${{ secrets.SEAL_WRAPPER_URL }}
+          # Optional: WALRUS wallet private key or other auth if needed
+          WALRUS_WALLET_KEY: ${{ secrets.WALRUS_WALLET_KEY }}
+        run: |
+          python -m pytest storage/test_seal_integration.py -q

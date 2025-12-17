@@ -1,0 +1,1 @@
+{"seal": true, "policy": {"name": "public", "type": "public", "definition": {}}, "ciphertext": "eyJoZWxsbyI6ICJzZWFsIiwgInRzIjogIjIwMjUtMTItMTdUMDE6MDA6NDkuMTExMTc0KzAwOjAwIn0=", "meta": {"method": "mock", "servers": [{"name": "key1", "url": "https://key1.example.com", "public_key": "replace_me"}]}}

@@ -99,10 +99,18 @@ class Database:
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(query, params)
+                # If fetching results (SELECT or INSERT ... RETURNING), fetch them
+                # and commit the transaction so returned rows are persisted.
                 if fetch:
                     if cursor.description:
-                        return cursor.fetchall()
-                    return None
+                        results = cursor.fetchall()
+                    else:
+                        results = None
+                    conn.commit()
+                    return results
+
+                # For non-fetching queries (e.g., INSERT/UPDATE without RETURNING),
+                # commit and return the affected rowcount.
                 conn.commit()
                 return cursor.rowcount
         except Exception as e:

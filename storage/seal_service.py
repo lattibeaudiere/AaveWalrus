@@ -108,7 +108,12 @@ class SealService:
         # If wrapper_url is set, attempt server-side decrypt
         if self.wrapper_url:
             try:
-                payload = {'ciphertext': obj, 'user_id': user_id, 'user_role': user_role}
+                # The wrapper expects a base64 ciphertext string and a metadata object
+                payload = {
+                    'ciphertext': obj.get('ciphertext'),
+                    'metadata': obj.get('meta'),
+                    'user_address': user_id
+                }
                 resp = requests.post(f"{self.wrapper_url.rstrip('/')}/decrypt", json=payload, timeout=10)
                 resp.raise_for_status()
                 j = resp.json()

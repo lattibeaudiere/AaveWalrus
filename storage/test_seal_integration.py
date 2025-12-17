@@ -16,6 +16,15 @@ def start_wrapper():
     env['SEAL_WRAPPER_PORT'] = '3001'
     # keep mock behavior if no Sui/Seal SDK available; set network to mainnet by default
     env.setdefault('SEAL_NETWORK', 'mainnet')
+    # If wrapper already running, reuse it
+    try:
+        r = requests.get(f"{WRAPPER_URL}/health", timeout=1)
+        if r.status_code == 200:
+            print('Using existing seal wrapper at', WRAPPER_URL)
+            return None
+    except Exception:
+        pass
+
     proc = subprocess.Popen(['node', 'index.js'], cwd=WRAPPER_DIR, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     # Wait up to 10s for health
     for _ in range(20):
@@ -34,6 +43,9 @@ def start_wrapper():
 
 
 def stop_wrapper(proc: subprocess.Popen):
+    if proc is None:
+        # We did not start the wrapper (it was already running); leave it running
+        return
     try:
         proc.send_signal(signal.SIGINT)
         proc.wait(timeout=3)
@@ -49,6 +61,7 @@ def test_seal_store_and_retrieve():
         os.environ['SEAL_ENABLED'] = 'true'
 
         from dual_storage_service import DualStorageService
+        import secrets
 
         svc = DualStorageService()
         policy = {"name": "public", "type": "public", "definition": {}}
@@ -57,7 +70,7 @@ def test_seal_store_and_retrieve():
             asset_address="0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
             supply_apy_percent=1.23,
             borrow_apy_percent=0.45,
-            tx_hash="0x" + "1"*64,
+            tx_hash="0x" + secrets.token_hex(32),
             block_number=1,
             block_timestamp=datetime.now(timezone.utc),
             full_data={"hello": "seal", "ts": datetime.now(timezone.utc).isoformat()},

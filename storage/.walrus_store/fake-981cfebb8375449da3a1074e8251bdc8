@@ -1,0 +1,1 @@
+{"seal": true, "policy": {"name": "public", "type": "public", "definition": {}}, "ciphertext": "eyJoZWxsbyI6ICJzZWFsIiwgInRzIjogIjIwMjUtMTItMTdUMDE6MzE6MzkuODIzNzU5KzAwOjAwIn0=", "meta": {"method": "mock", "policy": {"name": "public", "type": "public", "definition": {}}}}

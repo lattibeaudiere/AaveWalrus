@@ -1,26 +1,20 @@
+import os
+import pytest
+
+# Skip mainnet-only test by default; set WALRUS_MAINNET=1 to enable
+if os.getenv('WALRUS_MAINNET', '').lower() not in ('1', 'true', 'yes'):
+    pytest.skip('Mainnet walrus test skipped by default', allow_module_level=True)
+
 from walrus_service import WalrusService
-import sys
 
-sys.stdout.reconfigure(encoding=utf-8)
 
-ws = WalrusService()
-print(Walrus context:, ws.context)
-print(Config path:, ws.config_path)
+def test_walrus_mainnet_store_and_retrieve():
+    ws = WalrusService()
+    # Simple synthetic payload
+    test_data = {"test": "Aave event data", "timestamp": "2025-12-16"}
 
-test_data = {test: Aave event data, timestamp: 2025-12-16}
-print(\nStoring test data:, test_data)
-
-try:
     blob_id = ws.store_json(test_data)
-    print(Successfully stored! Blob ID:, blob_id)
-    
+    assert blob_id
+
     retrieved = ws.retrieve_json(blob_id)
-    print(Retrieved data:, retrieved)
-    
     assert retrieved == test_data
-    print(\nTest passed! Walrus Mainnet is working!)
-except Exception as e:
-    print(\nError:, e)
-    import traceback
-    traceback.print_exc()
-    sys.exit(1)
