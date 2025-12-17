@@ -28,6 +28,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r storage/requirements.txt pytest
 
+      - name: Run DB migrations (apply SQL files)
+        run: |
+          echo 'Running migration runner to ensure DB tables exist'
+          python3 storage/apply_migrations.py
+
       - name: Start optional SEAL wrapper (if no SEAL_WRAPPER_URL)
         run: |
           # If SEAL_WRAPPER_URL is provided via secrets, we'll use it. Otherwise start a local wrapper.
