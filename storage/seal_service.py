@@ -71,7 +71,14 @@ class SealService:
                 j = resp.json()
                 ciphertext_b64 = j.get('ciphertext')
                 meta = j.get('meta', {})
-                return base64.b64decode(ciphertext_b64.encode('utf-8')), meta
+                # Wrap into a JSON envelope so the blob contains SEAL metadata and ciphertext (base64)
+                envelope = {
+                    'seal': True,
+                    'policy': policy,
+                    'ciphertext': ciphertext_b64,
+                    'meta': meta
+                }
+                return json.dumps(envelope).encode('utf-8'), meta
             except Exception as e:
                 # Fall back to mock on any wrapper error
                 pass
