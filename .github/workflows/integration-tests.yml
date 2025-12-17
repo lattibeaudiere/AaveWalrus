@@ -59,6 +59,12 @@ jobs:
         run: |
           python -m pytest storage/test_seal_wrapper_health.py -q
 
+      - name: SEAL wrapper /encrypt smoke test
+        env:
+          SEAL_WRAPPER_URL: ${{ env.SEAL_WRAPPER_URL }}
+        run: |
+          python -m pytest storage/test_seal_wrapper_encrypt_smoke.py -q
+
       - name: Run SEAL integration test
         env:
           # Real network settings - MUST be provided via repository secrets
