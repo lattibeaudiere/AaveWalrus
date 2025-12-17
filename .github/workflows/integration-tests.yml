@@ -46,17 +46,26 @@ jobs:
               sleep 1
             done
             popd
-            export SEAL_WRAPPER_URL=http://127.0.0.1:3001
+            # Persist wrapper URL for subsequent steps
+            echo "SEAL_WRAPPER_URL=http://127.0.0.1:3001" >> $GITHUB_ENV
           else
             echo 'Using provided SEAL_WRAPPER_URL'
+            # Persist provided wrapper URL for subsequent steps
+            echo "SEAL_WRAPPER_URL=${{ secrets.SEAL_WRAPPER_URL }}" >> $GITHUB_ENV
           fi
+      - name: Check SEAL wrapper health
+        env:
+          SEAL_WRAPPER_URL: ${{ env.SEAL_WRAPPER_URL }}
+        run: |
+          python -m pytest storage/test_seal_wrapper_health.py -q
+
       - name: Run SEAL integration test
         env:
           # Real network settings - MUST be provided via repository secrets
           WALRUS_FAKE: 'false'
           SEAL_ENABLED: 'true'
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          SEAL_WRAPPER_URL: ${{ secrets.SEAL_WRAPPER_URL }}
+          SEAL_WRAPPER_URL: ${{ env.SEAL_WRAPPER_URL }}
           # Optional: WALRUS wallet private key or other auth if needed
           WALRUS_WALLET_KEY: ${{ secrets.WALRUS_WALLET_KEY }}
         run: |
