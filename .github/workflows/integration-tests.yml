@@ -28,6 +28,28 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r storage/requirements.txt pytest
 
+      - name: Start optional SEAL wrapper (if no SEAL_WRAPPER_URL)
+        run: |
+          # If SEAL_WRAPPER_URL is provided via secrets, we'll use it. Otherwise start a local wrapper.
+          if [ -z "${{ secrets.SEAL_WRAPPER_URL }}" ]; then
+            echo 'No SEAL_WRAPPER_URL provided, starting local wrapper in storage/seal_wrapper'
+            pushd storage/seal_wrapper
+            node --version || (echo 'Node not available, installing' && curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt-get install -y nodejs)
+            npm install
+            nohup node index.js > /tmp/seal_wrapper.log 2>&1 &
+            # wait for /health
+            for i in `seq 1 20`; do
+              if curl -sSf http://127.0.0.1:3001/health >/dev/null 2>&1; then
+                echo 'Wrapper healthy'
+                break
+              fi
+              sleep 1
+            done
+            popd
+            export SEAL_WRAPPER_URL=http://127.0.0.1:3001
+          else
+            echo 'Using provided SEAL_WRAPPER_URL'
+          fi
       - name: Run SEAL integration test
         env:
           # Real network settings - MUST be provided via repository secrets

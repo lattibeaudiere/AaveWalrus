@@ -1,0 +1,39 @@
+name: Label-triggered Integration (PR label)
+
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  run-on-label:
+    name: Run integration when labeled
+    runs-on: ubuntu-latest
+    environment: integration
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check label
+        id: label_check
+        run: |
+          echo "Labels: ${{ toJSON(github.event.pull_request.labels) }}"
+          LABELS=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[].name') || true
+          echo "labels=$LABELS" >> $GITHUB_OUTPUT
+          if echo "$LABELS" | grep -q '^run/integration$'; then
+            echo "run_integration=true" >> $GITHUB_OUTPUT
+          else
+            echo "run_integration=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Exit if not labeled
+        if: steps.label_check.outputs.run_integration == 'false'
+        run: |
+          echo 'Label run/integration not present — skipping.'
+
+      - name: Trigger integration workflow
+        if: steps.label_check.outputs.run_integration == 'true'
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: 'Integration tests (gated)'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.ref }}

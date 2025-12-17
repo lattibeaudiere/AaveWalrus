@@ -14,7 +14,17 @@ How to run:
    settings and require approvals for it.
 2. Add the required secrets into repository secrets (or environment secrets).
 3. Open the Actions tab, choose **Integration tests (gated)** and run it
-   via the manual "Run workflow" button.
+   via the manual "Run workflow" button. Alternatively, you can trigger the
+   integration workflow by adding the `run/integration` label to a pull request
+   (a separate label-trigger workflow will dispatch the integration job).
+
+Starting a SEAL wrapper in CI:
+- If you do not provide `SEAL_WRAPPER_URL` as a secret, the integration job will
+  attempt to start a local SEAL wrapper by installing Node and running
+  `storage/seal_wrapper/index.js` on the runner. This is useful for running the
+  integration end-to-end without a pre-hosted wrapper; however, be mindful of
+  network access and firewall considerations in your CI environment.
+
 
 Notes:
 - The job runs `storage/test_seal_integration.py` and will perform real Walrus
