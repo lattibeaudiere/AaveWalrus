@@ -1,0 +1,1637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Explorer | Defeyes</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <script src="theme-loader.js"></script>
+    <!-- Open the API connection (DNS + TLS) in parallel with HTML/CSS download
+         so the first events fetch doesn't pay the handshake cost. -->
+    <link rel="preconnect" href="https://defeyes-api.vercel.app" crossorigin>
+    <link rel="dns-prefetch" href="https://defeyes-api.vercel.app">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Kick off the canonical first-page events request before the JS bundle
+         even parses, so the network round-trip overlaps with HTML/CSS/JS download. -->
+    <script>
+      (function () {
+        try {
+          var apiOrigin = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+            ? location.origin
+            : 'https://defeyes-api.vercel.app';
+          window.__eventsPromise = fetch(
+            apiOrigin + '/api/explorer/events?limit=50&offset=0&time_range=24h&fast=1',
+            { credentials: 'omit' }
+          ).then(function (r) { return r.ok ? r.json() : null; })
+           .catch(function () { return null; });
+        } catch (e) { /* ignore – explorer.js will fall back to a normal fetch */ }
+      })();
+    </script>
+    <style>
+        :root {
+            --frosted-mint: #85D0CB;
+            --soft-lavender: #D1C4E9;
+            --muted-apricot: #FFCCBC;
+            --canvas: #F9FBF9;
+            --surface: #FFFFFF;
+            --surface-elevated: #FFFFFF;
+            --border: #E0E0E0;
+            --text-main: #333333;
+            --text-muted: #666666;
+            --font-heading: 'Space Grotesk', sans-serif;
+            --font-body: 'Inter', sans-serif;
+            --font-data: 'JetBrains Mono', monospace;
+            --pulse-gradient: linear-gradient(135deg, #85D0CB 0%, #D1C4E9 100%);
+            --success-green: #A5D6A7;
+            --error-red: #E57373;
+        }
+
+        [data-theme='dark'] {
+            --frosted-mint: #A5E6E1;
+            --soft-lavender: #E1D5F5;
+            --muted-apricot: #FFDBCF;
+            --canvas: #12111A;
+            --surface: #1C1B26;
+            --surface-elevated: #252434;
+            --border: #2D2B3D;
+            --text-main: #E9E9EF;
+            --text-muted: #9DA0B1;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--canvas);
+            color: var(--text-main);
+            min-height: 100vh;
+        }
+
+        /* Navbar styles removed - using style.css instead */
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--pulse-gradient);
+            color: #12111A;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+        }
+
+        .theme-toggle {
+            background: var(--surface-elevated);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px;
+            cursor: pointer;
+        }
+
+        .theme-toggle svg { width: 20px; height: 20px; fill: var(--text-muted); }
+
+        /* Page content container - don't affect navbar container */
+        body > .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding-top: 10px !important;
+            padding-left: 32px;
+            padding-right: 32px;
+            padding-bottom: 24px;
+        }
+        
+        /* Navbar container should use style.css defaults */
+        .navbar .container {
+            max-width: 1100px !important;
+            padding: 0 20px !important;
+        }
+
+        /* Force horizontal navbar on desktop - match index layout */
+        @media (min-width: 769px) {
+            header.navbar, .navbar { width: 100% !important; display: block !important; }
+            .navbar .container {
+                display: flex !important;
+                flex-wrap: nowrap !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                width: 100% !important;
+                max-width: 1100px !important;
+                margin: 0 auto !important;
+            }
+            #main-nav, .navbar nav {
+                display: flex !important;
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                width: auto !important;
+                order: unset !important;
+                border: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: transparent !important;
+                box-shadow: none !important;
+            }
+            .nav-links-left { display: flex !important; flex-direction: row !important; width: auto !important; gap: 24px !important; }
+            .nav-actions-right { display: flex !important; flex-direction: row !important; width: auto !important; gap: 16px !important; }
+            .nav-links-left a { display: inline !important; width: auto !important; padding: 8px 0 !important; text-align: left !important; background: transparent !important; }
+            .mobile-menu-toggle { display: none !important; }
+        }
+
+        .navbar-tools {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 0 0 auto;
+            margin-left: 16px;
+        }
+
+        .filter-popover-wrap {
+            position: relative;
+        }
+
+        .filter-fab {
+            width: 42px;
+            height: 42px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background: var(--surface-elevated);
+            color: var(--text-main);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+            transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+        }
+
+        .filter-fab:hover {
+            border-color: var(--frosted-mint);
+            transform: translateY(-1px);
+        }
+
+        .filter-fab svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+        }
+
+        .ticker-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .ticker-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border: 1px solid rgba(133, 208, 203, 0.28);
+            border-radius: 12px;
+            background: color-mix(in srgb, var(--surface-elevated) 88%, transparent);
+            overflow: hidden;
+        }
+
+        .ticker-label {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            color: var(--frosted-mint);
+            text-transform: uppercase;
+            flex: 0 0 auto;
+        }
+
+        .ticker-viewport {
+            overflow: hidden;
+            width: 100%;
+            position: relative;
+            mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+            -webkit-mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+        }
+
+        .ticker-track {
+            display: inline-flex;
+            white-space: nowrap;
+            will-change: transform;
+            /* Hold the ticker still for a few seconds so the leading (most
+               important) assets stay readable before scrolling begins. The
+               delay restarts when real data first arrives — see explorer.js. */
+            animation: ticker-scroll var(--ticker-duration, 68s) linear var(--ticker-start-delay, 4s) infinite;
+            transform: translate3d(0, 0, 0);
+            user-select: none;
+            touch-action: pan-x;
+            cursor: grab;
+        }
+
+        #apy-ticker-track {
+            --ticker-duration: 64s;
+        }
+
+        #price-ticker-track {
+            --ticker-duration: 76s;
+        }
+
+        .ticker-track.is-paused {
+            cursor: grabbing;
+        }
+
+        .ticker-inner {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            padding-right: 24px;
+            min-width: max-content;
+            flex-shrink: 0;
+        }
+
+        .ticker-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: var(--font-data);
+            font-size: 12px;
+            color: var(--text-main);
+        }
+
+        .ticker-item .ticker-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.45);
+        }
+
+        .ticker-item.apy-hot {
+            color: #7fe2b4;
+        }
+
+        .ticker-item.apy-hot .ticker-dot {
+            background: #7fe2b4;
+        }
+
+        .ticker-item.apy-cool {
+            color: #ffdbcf;
+        }
+
+        .ticker-item.apy-cool .ticker-dot {
+            background: #ffdbcf;
+        }
+
+        .ticker-sep {
+            color: var(--text-muted);
+            opacity: 0.7;
+            margin-left: 2px;
+        }
+
+        @keyframes ticker-scroll {
+            0% { transform: translate3d(0, 0, 0); }
+            100% { transform: translate3d(-50%, 0, 0); }
+        }
+
+        /* Filters */
+        .filters-container {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            width: min(92vw, 360px);
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+            z-index: 25;
+            display: none;
+        }
+
+        .filter-popover-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 10, 18, 0.18);
+            backdrop-filter: blur(2px);
+            z-index: 20;
+            display: none;
+        }
+
+        .filters-content {
+            padding: 20px;
+            display: block;
+            max-height: min(72vh, 560px);
+            overflow-y: auto;
+        }
+
+        .filters-container.expanded .filters-content {
+            display: block;
+        }
+
+        .filters-container.expanded {
+            display: block;
+        }
+
+        .filter-popover-backdrop.expanded {
+            display: block;
+        }
+
+        .filters {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .filter-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        .filter-input, .filter-select {
+            padding: 10px 14px;
+            background: var(--surface-elevated);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-main);
+            font-size: 14px;
+            min-width: 160px;
+        }
+
+        .filter-input:focus, .filter-select:focus {
+            outline: none;
+            border-color: var(--frosted-mint);
+        }
+
+        .btn-filter {
+            align-self: flex-end;
+            padding: 10px 24px;
+        }
+
+        /* Refresh Controls Group */
+        .refresh-controls {
+            min-width: 280px;
+        }
+
+        .refresh-controls-inner {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .btn-refresh {
+            padding: 10px 24px;
+            white-space: nowrap;
+        }
+
+        .auto-refresh-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .auto-refresh-label {
+            font-size: 13px;
+            color: var(--text-main);
+            white-space: nowrap;
+        }
+
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px !important;
+            height: 26px !important;
+            flex-shrink: 0;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--border);
+            transition: 0.3s;
+            border-radius: 26px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px !important;
+            width: 20px !important;
+            left: 3px !important;
+            top: 3px !important;
+            background-color: white !important;
+            transition: transform 0.3s ease !important;
+            border-radius: 50% !important;
+            transform: translateY(0) !important;
+            z-index: 2 !important;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: var(--frosted-mint) !important;
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(24px) translateY(0) !important;
+        }
+
+        .toggle-switch input:focus + .toggle-slider {
+            box-shadow: 0 0 1px var(--frosted-mint);
+        }
+
+        /* Dynamic Metric Ribbon */
+        .metric-ribbon {
+            --metric-frosted-mint: var(--frosted-mint);
+            --metric-soft-lavender: var(--soft-lavender);
+            --metric-muted-apricot: var(--muted-apricot);
+            --metric-brand-gradient: var(--pulse-gradient);
+            --metric-glass-bg: rgba(255, 255, 255, 0.05);
+            --metric-glass-border: rgba(255, 255, 255, 0.10);
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .pulse-card {
+            min-height: 154px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        }
+
+        .metric-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            height: 100%;
+            padding: 12px 10px;
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)),
+                var(--metric-glass-bg);
+            border: 1px solid var(--metric-glass-border);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+        }
+
+        .metric-kicker {
+            font-family: var(--font-heading);
+            font-size: 0.94rem;
+            font-weight: 700;
+            color: var(--text-main);
+            letter-spacing: 0.01em;
+            width: 100%;
+            text-align: center;
+            line-height: 1.15;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .label-text {
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: var(--metric-soft-lavender);
+            text-transform: uppercase;
+            letter-spacing: 0.05rem;
+            margin-top: 6px;
+        }
+
+        .metric-caption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-align: center;
+            line-height: 1.3;
+            min-height: 32px;
+        }
+
+        .thermo-scale {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .thermo-marker {
+            font-size: 0.72rem;
+            line-height: 1;
+            opacity: 0.9;
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .thermo-marker-cold {
+            color: var(--metric-frosted-mint);
+        }
+
+        .thermo-marker-hot {
+            color: var(--metric-muted-apricot);
+        }
+
+        .thermo-marker svg {
+            width: 11px;
+            height: 11px;
+            display: block;
+        }
+
+        .thermo-shell {
+            width: 74px;
+            height: 20px;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--metric-soft-lavender) 16%, transparent);
+            border: 1px solid color-mix(in srgb, var(--metric-soft-lavender) 22%, transparent);
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 3px;
+            overflow: hidden;
+            box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.14);
+        }
+
+        .thermo-fill {
+            width: 10%;
+            height: 100%;
+            border-radius: 999px;
+            background: var(--thermo-bg, linear-gradient(90deg,
+                color-mix(in srgb, var(--metric-frosted-mint) 92%, white) 0%,
+                color-mix(in srgb, var(--metric-frosted-mint) 45%, transparent) 100%));
+            box-shadow: var(--thermo-glow, 0 0 20px color-mix(in srgb, var(--metric-frosted-mint) 55%, transparent));
+            transition: width 1.1s ease, box-shadow 1.1s ease, opacity 1.1s ease, background 1.1s ease;
+        }
+
+        .speedometer-svg {
+            overflow: visible;
+        }
+
+        .speedometer-needle {
+            transition: transform 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform-origin: 50px 50px;
+        }
+
+        .speedometer-legend {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.64rem;
+            color: var(--text-muted);
+            margin-top: -2px;
+        }
+
+        .actionmix-grid {
+            width: 96%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .actionmix-gauge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1px;
+        }
+
+        .actionmix-ring {
+            position: relative;
+            width: 36px;
+            height: 36px;
+        }
+
+        .actionmix-svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            transform: rotate(-90deg);
+        }
+
+        .actionmix-gauge-bg {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.12);
+            stroke-width: 4;
+        }
+
+        .actionmix-fill {
+            fill: none;
+            stroke-width: 4;
+            stroke-linecap: round;
+            stroke-dasharray: 94.25;
+            stroke-dashoffset: 94.25;
+            transition: stroke-dashoffset 1s ease-in-out;
+        }
+
+        .actionmix-fill-supply { stroke: color-mix(in srgb, var(--metric-frosted-mint) 88%, white); }
+        .actionmix-fill-borrow { stroke: color-mix(in srgb, var(--metric-soft-lavender) 86%, white); }
+        .actionmix-fill-withdraw { stroke: color-mix(in srgb, var(--metric-muted-apricot) 88%, white); }
+        .actionmix-fill-repay { stroke: color-mix(in srgb, var(--metric-frosted-mint) 60%, var(--metric-soft-lavender) 40%); }
+
+        .actionmix-label {
+            font-size: 0.56rem;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            font-weight: 600;
+            color: var(--text-muted);
+            line-height: 1;
+        }
+
+        .actionmix-pct {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.52rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+            pointer-events: none;
+        }
+
+        .actionmix-pct-supply { color: color-mix(in srgb, var(--metric-frosted-mint) 88%, white); }
+        .actionmix-pct-borrow { color: color-mix(in srgb, var(--metric-soft-lavender) 86%, white); }
+        .actionmix-pct-withdraw { color: color-mix(in srgb, var(--metric-muted-apricot) 88%, white); }
+        .actionmix-pct-repay { color: color-mix(in srgb, var(--metric-frosted-mint) 60%, var(--metric-soft-lavender) 40%); }
+
+        .actionmix-bars {
+            display: none;
+        }
+
+        .metric-kicker.actionmix-title {
+            font-size: 0.94rem;
+            line-height: 1.15;
+        }
+
+        .market-pulse-insight-line {
+            margin: 0 0 12px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(133, 208, 203, 0.35);
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-muted);
+            font-size: 0.86rem;
+            line-height: 1.4;
+        }
+
+        .market-pulse-insight-line strong {
+            color: var(--soft-lavender);
+            font-weight: 600;
+            margin-right: 4px;
+        }
+
+        .pulse-insight-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .pulse-insight-header > span {
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            min-width: 0;
+        }
+
+        .market-pulse-insight-line.expanded .pulse-insight-header > span {
+            white-space: normal;
+            overflow: visible;
+            text-overflow: unset;
+        }
+
+        .pulse-insight-toggle {
+            background: none;
+            border: none;
+            color: var(--metric-frosted-mint);
+            font-size: 0.78rem;
+            cursor: pointer;
+            padding: 0;
+            white-space: nowrap;
+            opacity: 0.8;
+            flex-shrink: 0;
+        }
+
+        .pulse-insight-toggle:hover {
+            opacity: 1;
+            text-decoration: underline;
+        }
+
+        .pulse-insight-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s ease, margin-top 0.35s ease;
+            margin-top: 0;
+            color: var(--text-muted);
+            font-size: 0.84rem;
+            line-height: 1.5;
+        }
+
+        .pulse-insight-body.expanded {
+            max-height: 200px;
+            margin-top: 8px;
+        }
+
+        .pulse-insight-ellipsis.hidden {
+            display: none;
+        }
+
+        /* Pulse Insight as 4th card on desktop */
+        @media (min-width: 769px) {
+            .metric-ribbon > .market-pulse-insight-line {
+                margin: 0;
+                min-height: 154px;
+                background:
+                    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)),
+                    var(--metric-glass-bg);
+                border: 1px solid var(--metric-glass-border);
+                backdrop-filter: blur(10px);
+                border-radius: 16px;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+                padding: 14px 16px;
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-start;
+                gap: 0;
+                overflow: hidden;
+            }
+
+            .metric-ribbon > .market-pulse-insight-line .pulse-insight-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0;
+                text-align: left;
+            }
+
+            .metric-ribbon > .market-pulse-insight-line .pulse-insight-header > span {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+                white-space: normal;
+                overflow: visible;
+                text-overflow: unset;
+                text-align: left;
+            }
+
+            .metric-ribbon > .market-pulse-insight-line .pulse-insight-header strong {
+                font-size: 0.65rem;
+                font-weight: 600;
+                color: var(--soft-lavender);
+                text-transform: uppercase;
+                letter-spacing: 0.05rem;
+                display: block;
+            }
+
+            .metric-ribbon > .market-pulse-insight-line #market-pulse-insight-text {
+                font-family: var(--font-heading);
+                font-size: 0.88rem;
+                font-weight: 700;
+                color: var(--text-main);
+                line-height: 1.3;
+                display: block;
+            }
+
+            .metric-ribbon > .market-pulse-insight-line .pulse-insight-toggle {
+                display: none !important;
+            }
+
+            .metric-ribbon > .market-pulse-insight-line .pulse-insight-ellipsis {
+                display: none !important;
+            }
+
+            .metric-ribbon > .market-pulse-insight-line .pulse-insight-body {
+                max-height: 200px;
+                margin-top: 10px;
+                padding-top: 10px;
+                border-top: 1px solid rgba(255, 255, 255, 0.06);
+                overflow: hidden;
+                overflow-y: auto;
+                text-align: left;
+                font-size: 0.8rem;
+                line-height: 1.55;
+                color: var(--text-muted);
+            }
+
+            /* Scale up card content on desktop */
+            .pulse-card {
+                min-height: 180px;
+            }
+
+            .metric-wrapper {
+                padding: 16px 14px;
+                gap: 4px;
+            }
+
+            .metric-kicker {
+                font-size: 1.1rem;
+            }
+
+            .metric-kicker.actionmix-title {
+                font-size: 1.1rem;
+            }
+
+            .label-text {
+                font-size: 0.72rem;
+                margin-top: 8px;
+            }
+
+            .metric-caption {
+                font-size: 0.78rem;
+                min-height: 36px;
+            }
+
+            .thermo-shell {
+                width: 100px;
+                height: 24px;
+                padding: 4px;
+            }
+
+            .thermo-marker {
+                font-size: 0.85rem;
+            }
+
+            .thermo-marker svg {
+                width: 14px;
+                height: 14px;
+            }
+
+            .thermo-scale {
+                gap: 10px;
+            }
+
+            .speedometer-svg {
+                width: 100px;
+                height: 62px;
+            }
+
+            .speedometer-legend {
+                font-size: 0.7rem;
+                margin-top: 0;
+            }
+
+            .pulse-card:has(.actionmix-title) .metric-wrapper {
+                justify-content: flex-start;
+                gap: 27px;
+            }
+
+            .actionmix-grid {
+                display: none;
+            }
+
+            .actionmix-bars {
+                display: flex;
+                flex-direction: column;
+                gap: 7px;
+                width: 100%;
+            }
+
+            .actionmix-bar-row {
+                display: grid;
+                grid-template-columns: 58px 1fr 36px 52px;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .actionmix-bar-label {
+                font-size: 0.68rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.02em;
+                color: var(--text-muted);
+            }
+
+            .actionmix-bar-track {
+                height: 8px;
+                border-radius: 99px;
+                background: rgba(255, 255, 255, 0.08);
+                overflow: hidden;
+            }
+
+            .actionmix-bar-fill {
+                height: 100%;
+                border-radius: 99px;
+                width: 0%;
+                transition: width 1s ease-in-out;
+            }
+
+            .actionmix-bar-fill-supply {
+                background: linear-gradient(90deg,
+                    color-mix(in srgb, var(--frosted-mint) 92%, white),
+                    color-mix(in srgb, var(--frosted-mint) 55%, transparent));
+            }
+            .actionmix-bar-fill-borrow {
+                background: linear-gradient(90deg,
+                    color-mix(in srgb, var(--soft-lavender) 86%, white),
+                    color-mix(in srgb, var(--soft-lavender) 50%, transparent));
+            }
+            .actionmix-bar-fill-withdraw {
+                background: linear-gradient(90deg,
+                    color-mix(in srgb, var(--muted-apricot) 88%, white),
+                    color-mix(in srgb, var(--muted-apricot) 50%, transparent));
+            }
+            .actionmix-bar-fill-repay {
+                background: linear-gradient(90deg,
+                    color-mix(in srgb, var(--frosted-mint) 60%, var(--soft-lavender)),
+                    color-mix(in srgb, var(--frosted-mint) 30%, transparent));
+            }
+
+            .actionmix-bar-pct {
+                font-size: 0.72rem;
+                font-weight: 700;
+                font-variant-numeric: tabular-nums;
+                color: var(--text-main);
+                text-align: right;
+            }
+
+            .actionmix-bar-vol {
+                font-size: 0.66rem;
+                font-family: var(--font-data);
+                color: var(--text-muted);
+                text-align: right;
+            }
+        }
+
+        /* Data Table */
+        .table-container {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .table-title {
+            font-family: var(--font-heading);
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .table-title-wrap {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .volume-metrics {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .volume-divider {
+            color: var(--text-muted);
+            opacity: 0.75;
+            font-size: 0.76rem;
+            line-height: 1;
+        }
+
+        .volume-change {
+            font-size: 0.84rem;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+            color: var(--text-muted);
+        }
+
+        .volume-change-up {
+            color: var(--success-green);
+        }
+
+        .volume-change-down {
+            color: var(--muted-apricot);
+        }
+
+        .volume-change-neutral {
+            color: var(--text-muted);
+        }
+
+        .table-header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .table-header-right a {
+            color: var(--frosted-mint);
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .table-header-right a:hover {
+            text-decoration: underline;
+        }
+
+        .table-scroll {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th {
+            text-align: left;
+            padding: 14px 16px;
+            background: var(--surface-elevated);
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        tr:hover td {
+            background: var(--surface-elevated);
+        }
+
+        .mono { font-family: var(--font-data); font-size: 12px; }
+
+        .truncate {
+            max-width: 140px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        /* Entry actions (green tones) */
+        .badge-deposit { background: rgba(165, 214, 167, 0.2); color: var(--success-green); }
+        .badge-supply { background: rgba(165, 214, 167, 0.2); color: var(--success-green); }
+        .badge-leverage { background: rgba(16, 185, 129, 0.2); color: #10B981; }
+        
+        /* Exit actions (red/orange tones) */
+        .badge-unwind { background: rgba(239, 68, 68, 0.2); color: #EF4444; }
+        .badge-withdraw { background: rgba(255, 204, 188, 0.2); color: var(--muted-apricot); }
+        .badge-burn { background: rgba(255, 204, 188, 0.2); color: var(--muted-apricot); }
+        
+        /* Adjustment actions (blue/purple tones) */
+        .badge-rebalance { background: rgba(59, 130, 246, 0.2); color: #3B82F6; }
+        .badge-borrow { background: rgba(209, 196, 233, 0.2); color: var(--soft-lavender); }
+        .badge-repay { background: rgba(133, 208, 203, 0.2); color: var(--frosted-mint); }
+        
+        /* Trading actions (amber tones) */
+        .badge-swap { background: rgba(251, 191, 36, 0.2); color: #F59E0B; }
+        .badge-mint { background: rgba(133, 208, 203, 0.2); color: var(--frosted-mint); }
+        
+        /* Special/complex actions */
+        .badge-yield { background: rgba(16, 185, 129, 0.2); color: #10B981; }
+        .badge-derivatives { background: rgba(139, 92, 246, 0.2); color: #8B5CF6; }
+        .badge-claim { background: rgba(245, 158, 11, 0.18); color: #f59e0b; }
+        .badge-lp { background: rgba(56, 189, 248, 0.18); color: #38bdf8; }
+        .badge-default { background: var(--surface-elevated); color: var(--text-muted); }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            padding: 20px;
+        }
+
+        .page-btn {
+            padding: 8px 14px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--surface);
+            color: var(--text-main);
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .page-btn:hover { border-color: var(--frosted-mint); }
+        .page-btn.active { background: var(--pulse-gradient); color: #12111A; border-color: transparent; }
+        .page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: var(--text-muted);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--frosted-mint);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* TX Link */
+        .tx-link {
+            color: var(--frosted-mint);
+            text-decoration: none;
+        }
+
+        .tx-link:hover { text-decoration: underline; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            body > .container {
+                padding: 16px;
+            }
+
+            .navbar-tools {
+                margin-left: 10px;
+                gap: 8px;
+            }
+
+            .filters-container {
+                width: min(94vw, 340px);
+                position: fixed;
+                top: 120px;
+                right: 16px;
+                z-index: 40;
+            }
+
+            .ticker-row {
+                padding: 7px 10px;
+            }
+
+            .ticker-item {
+                font-size: 11px;
+            }
+
+            .filters { flex-direction: column; }
+            .filter-group { width: 100%; }
+            .filter-input, .filter-select { width: 100%; }
+            
+            .metric-ribbon {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 8px;
+                margin-bottom: 0px;
+            }
+
+            .metric-ribbon > .market-pulse-insight-line {
+                grid-column: 1 / -1;
+            }
+
+            .pulse-card {
+                min-height: 148px;
+            }
+
+            .metric-wrapper {
+                padding: 10px 8px;
+            }
+
+            .metric-kicker {
+                font-size: 0.9rem;
+            }
+
+            .metric-kicker.actionmix-title {
+                font-size: 0.9rem;
+                line-height: 1.15;
+            }
+
+            .metric-caption {
+                font-size: 0.68rem;
+                min-height: 34px;
+            }
+
+            .thermo-marker {
+                font-size: 0.62rem;
+            }
+
+            .thermo-shell {
+                width: 62px;
+                height: 18px;
+            }
+
+            .market-pulse-insight-line {
+                margin: 0 0 10px;
+                font-size: 0.8rem;
+                padding: 8px 10px;
+            }
+
+            /* Table Header - Mobile */
+            .table-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .table-title-wrap {
+                width: 100%;
+            }
+
+            .volume-change {
+                font-size: 0.78rem;
+            }
+
+            .volume-metrics {
+                gap: 6px;
+            }
+
+            .volume-divider {
+                font-size: 0.72rem;
+            }
+
+            .table-header-right {
+                width: 100%;
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="navbar">
+        <div class="container">
+            <a href="/index.html" class="logo">
+                <img src="logo.png" alt="Defeyes Logo" class="logo-img">
+                <div class="logo-text">
+                    <strong>Defeyes</strong>
+                    <small>Onchain Insights</small>
+                </div>
+            </a>
+            <nav id="main-nav">
+                <div class="nav-links-left">
+                    <a href="/explorer.html">Explorer</a>
+                    <a href="/index.html#pricing">Pricing</a>
+                    <a href="/api-docs.html">Documentation</a>
+                    <a href="/webhooks.html" id="webhooks-nav-link" style="display: none;">Webhooks</a>
+                </div>
+                <div class="nav-actions-right">
+                    <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode">
+                        <span class="theme-icon">
+                            <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                            </svg>
+                            <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="5"></circle>
+                                <line x1="12" y1="1" x2="12" y2="3"></line>
+                                <line x1="12" y1="21" x2="12" y2="23"></line>
+                                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                                <line x1="1" y1="12" x2="3" y2="12"></line>
+                                <line x1="21" y1="12" x2="23" y2="12"></line>
+                                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                            </svg>
+                        </span>
+                    </button>
+                    <a href="/payment.html" class="nav-link-signup" id="signup-btn">Sign up</a>
+                    <a href="/login.html" class="btn btn-primary" id="login-btn" style="display: none;">Login</a>
+                    <a href="/dashboard.html" class="btn btn-primary" id="dashboard-btn" style="display: none;">Dashboard</a>
+                    <button class="btn btn-primary" id="logout-btn" style="display: none;" onclick="logout()">Logout</button>
+                </div>
+            </nav>
+            <div class="navbar-tools">
+                <div class="filter-popover-wrap">
+                    <button class="filter-fab" id="filter-fab" type="button" aria-label="Open search and filters" aria-expanded="false" aria-controls="filters-container">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="11" cy="11" r="7"></circle>
+                            <path d="M20 20l-3.5-3.5"></path>
+                        </svg>
+                    </button>
+                    <div class="filter-popover-backdrop" id="filter-backdrop"></div>
+                    <div class="filters-container" id="filters-container">
+                        <div class="filters-content">
+                            <div class="filters">
+                                <div class="filter-group">
+                                    <span class="filter-label">Protocol</span>
+                                    <select id="filter-protocol" class="filter-select">
+                                        <option value="">All Protocols</option>
+                                        <option value="Aave V3 Pool">Aave V3 Pool</option>
+                                        <option value="CoW Protocol">CoW Protocol</option>
+                                        <option value="Ithaca Protocol">Ithaca Protocol</option>
+                                        <option value="KyberSwap">KyberSwap</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group">
+                                    <span class="filter-label">Action Type</span>
+                                    <select id="filter-action" class="filter-select">
+                                        <option value="">All Actions</option>
+                                        <option value="SUPPLY">Supply</option>
+                                        <option value="DEPOSIT">Deposit</option>
+                                        <option value="LEVERAGE">Leverage</option>
+                                        <option value="BORROW">Borrow</option>
+                                        <option value="REPAY">Repay</option>
+                                        <option value="WITHDRAW">Withdraw</option>
+                                        <option value="UNWIND">Unwind</option>
+                                        <option value="DELEVERAGE">Deleverage</option>
+                                        <option value="COLLATERAL_SWAP">Collateral Swap</option>
+                                        <option value="REBALANCE">Rebalance</option>
+                                        <option value="SWAP">Swap</option>
+                                        <option value="MINT">Mint</option>
+                                        <option value="BURN">Burn</option>
+                                        <option value="YIELD_STRATEGY">Yield Strategy</option>
+                                        <option value="FLASH_LOAN">Flash Loan</option>
+                                        <option value="DERIVATIVES">Derivatives</option>
+                                        <option value="LIQUIDATION">Liquidation</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group">
+                                    <span class="filter-label">Wallet Address</span>
+                                    <input type="text" id="filter-wallet" class="filter-input" placeholder="0x...">
+                                </div>
+                                <div class="filter-group">
+                                    <span class="filter-label">Filter Type</span>
+                                    <select id="filter-type" class="filter-select">
+                                        <option value="all">All Wallets</option>
+                                        <option value="favorites">Favorites Only</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group">
+                                    <span class="filter-label">Time Range</span>
+                                    <select id="filter-time-range" class="filter-select">
+                                        <option value="1h">Last Hour</option>
+                                        <option value="24h" selected>Last 24 Hours</option>
+                                        <option value="7d">Last 7 Days</option>
+                                        <option value="all">All Time</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group">
+                                    <span class="filter-label">Rows Per Page</span>
+                                    <select id="filter-limit" class="filter-select">
+                                        <option value="25">25</option>
+                                        <option value="50" selected>50</option>
+                                        <option value="100">100</option>
+                                        <option value="500">500</option>
+                                        <option value="1000">1000</option>
+                                    </select>
+                                </div>
+                                <button class="btn btn-primary btn-filter" id="search-btn">Search</button>
+                                <div class="filter-group refresh-controls">
+                                    <span class="filter-label">Refresh Controls</span>
+                                    <div class="refresh-controls-inner">
+                                        <button class="btn btn-secondary btn-refresh" id="refresh-btn">
+                                            <span>Refresh</span>
+                                        </button>
+                                        <div class="auto-refresh-control">
+                                            <span class="auto-refresh-label">Auto-Refresh (5m)</span>
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" id="auto-refresh-toggle">
+                                                <span class="toggle-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Toggle menu" type="button">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="ticker-stack">
+            <div class="ticker-row">
+                <span class="ticker-label">APY</span>
+                <div class="ticker-viewport">
+                    <div class="ticker-track" id="apy-ticker-track"></div>
+                </div>
+            </div>
+            <div class="ticker-row">
+                <span class="ticker-label">Price</span>
+                <div class="ticker-viewport">
+                    <div class="ticker-track" id="price-ticker-track"></div>
+                </div>
+            </div>
+        </div>
+        
+        <style>
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.5; }
+            }
+        </style>
+
+        <div class="metric-ribbon" id="market-pulse-ribbon">
+            <div class="pulse-card">
+                <div class="metric-wrapper">
+                    <div class="metric-kicker" id="heat-value">Calm</div>
+                    <div class="thermo-scale" aria-hidden="true">
+                        <span class="thermo-marker thermo-marker-cold">❄</span>
+                        <div class="thermo-shell">
+                            <div class="thermo-fill" id="heat-fill"></div>
+                        </div>
+                        <span class="thermo-marker thermo-marker-hot" aria-hidden="true">
+                            <svg viewBox="0 0 16 16" fill="currentColor" role="img" aria-label="hot">
+                                <path d="M8 0c-.5 2-1.5 3.5-2.5 5.5s-1 4 0 6 2.5 3 2.5 3 1.5-1 2.5-3 1-4 0-6S8.5 2 8 0z"/>
+                                <path d="M4.5 5.5c-.8 1.5-1.5 3-1.5 4.5s.7 3 2 4c-.5-1-1-2.5-.5-4s1.5-3 0-4.5z"/>
+                                <path d="M11.5 5.5c.8 1.5 1.5 3 1.5 4.5s-.7 3-2 4c.5-1 1-2.5.5-4s-1.5-3 0-4.5z"/>
+                                <path d="M2 14.5c0-.3 12-.3 12 0s-2.5 1.5-6 1.5-6-1.2-6-1.5z" opacity="0.6"/>
+                            </svg>
+                        </span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+                        <span class="label-text">Activity Temp</span>
+                        <span class="metric-caption" id="heat-caption">Activity is tracking close to normal.</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pulse-card">
+                <div class="metric-wrapper">
+                    <div class="metric-kicker" id="sentiment-value">Balanced</div>
+                    <svg class="speedometer-svg" width="75" height="46" viewBox="0 0 100 50" aria-hidden="true">
+                        <path d="M10,50 A40,40 0 0,1 90,50" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="10" />
+                        <path d="M10,50 A40,40 0 0,1 50,10" fill="none" stroke="var(--metric-muted-apricot)" stroke-width="10" opacity="0.45" />
+                        <path d="M50,10 A40,40 0 0,1 90,50" fill="none" stroke="var(--metric-frosted-mint)" stroke-width="10" opacity="0.85" />
+                        <g class="speedometer-needle" id="sentiment-needle">
+                            <line x1="50" y1="50" x2="50" y2="12" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" />
+                            <circle cx="50" cy="50" r="4" fill="#FFFFFF" />
+                        </g>
+                    </svg>
+                    <div class="speedometer-legend">
+                        <span>Borrow</span>
+                        <span>Supply</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+                        <span class="label-text">Flow Bias</span>
+                        <span class="metric-caption" id="sentiment-caption">Supply vs borrow flow over 4h</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pulse-card">
+                <div class="metric-wrapper">
+                    <div class="metric-kicker actionmix-title">Action Mix</div>
+                    <div class="actionmix-grid" aria-hidden="true">
+                        <div class="actionmix-gauge">
+                            <div class="actionmix-ring">
+                                <svg class="actionmix-svg" viewBox="0 0 40 40" aria-hidden="true">
+                                    <circle class="actionmix-gauge-bg" cx="20" cy="20" r="15"></circle>
+                                    <circle class="actionmix-fill actionmix-fill-supply" id="supply-mix-fill" cx="20" cy="20" r="15"></circle>
+                                </svg>
+                                <span class="actionmix-pct actionmix-pct-supply" id="supply-mix-pct">0%</span>
+                            </div>
+                            <span class="actionmix-label">Supply</span>
+                        </div>
+                        <div class="actionmix-gauge">
+                            <div class="actionmix-ring">
+                                <svg class="actionmix-svg" viewBox="0 0 40 40" aria-hidden="true">
+                                    <circle class="actionmix-gauge-bg" cx="20" cy="20" r="15"></circle>
+                                    <circle class="actionmix-fill actionmix-fill-borrow" id="borrow-mix-fill" cx="20" cy="20" r="15"></circle>
+                                </svg>
+                                <span class="actionmix-pct actionmix-pct-borrow" id="borrow-mix-pct">0%</span>
+                            </div>
+                            <span class="actionmix-label">Borrow</span>
+                        </div>
+                        <div class="actionmix-gauge">
+                            <div class="actionmix-ring">
+                                <svg class="actionmix-svg" viewBox="0 0 40 40" aria-hidden="true">
+                                    <circle class="actionmix-gauge-bg" cx="20" cy="20" r="15"></circle>
+                                    <circle class="actionmix-fill actionmix-fill-withdraw" id="withdraw-mix-fill" cx="20" cy="20" r="15"></circle>
+                                </svg>
+                                <span class="actionmix-pct actionmix-pct-withdraw" id="withdraw-mix-pct">0%</span>
+                            </div>
+                            <span class="actionmix-label">Withdr</span>
+                        </div>
+                        <div class="actionmix-gauge">
+                            <div class="actionmix-ring">
+                                <svg class="actionmix-svg" viewBox="0 0 40 40" aria-hidden="true">
+                                    <circle class="actionmix-gauge-bg" cx="20" cy="20" r="15"></circle>
+                                    <circle class="actionmix-fill actionmix-fill-repay" id="repay-mix-fill" cx="20" cy="20" r="15"></circle>
+                                </svg>
+                                <span class="actionmix-pct actionmix-pct-repay" id="repay-mix-pct">0%</span>
+                            </div>
+                            <span class="actionmix-label">Repay</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="market-pulse-insight-line" class="market-pulse-insight-line">
+                <div class="pulse-insight-header">
+                    <span><strong>Pulse Insights:</strong><span id="market-pulse-insight-text">Loading live interpretation...</span><span class="pulse-insight-ellipsis" id="pulse-insight-ellipsis"> ...</span></span>
+                    <button class="pulse-insight-toggle" id="pulse-insight-toggle" aria-label="Show more">more</button>
+                </div>
+                <div class="pulse-insight-body" id="pulse-insight-body">
+                    <span id="pulse-insight-detail"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="table-container">
+            <div class="table-header">
+                <div class="table-title-wrap">
+                    <span class="table-title" id="volume-title">Vol. --</span>
+                    <div class="volume-metrics">
+                        <span class="volume-change" id="volume-change-1h">--</span>
+                        <span class="volume-divider" aria-hidden="true">|</span>
+                        <span class="volume-change" id="volume-change-24h">--</span>
+                    </div>
+                </div>
+                <div class="table-header-right" id="result-count">Loading...</div>
+            </div>
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Loading data...</p>
+            </div>
+            <div class="table-scroll" id="table-wrapper" style="display: none;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>TX Hash</th>
+                            <th>Protocol</th>
+                            <th>Action</th>
+                            <th>Wallet</th>
+                            <th>Value</th>
+                            <th>Gas</th>
+                            <th>Block</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body"></tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pagination"></div>
+        </div>
+    </div>
+
+    <script src="explorer.js" defer></script>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container footer-content">
+            <div class="footer-links">
+                <a href="/">Home</a>
+                <a href="/docs">Documentation</a>
+                <a href="/explorer">Explorer</a>
+                <a href="/terms">Terms</a>
+                <a href="mailto:support@defeyes.com">Support</a>
+            </div>
+            <div class="footer-bottom">
+                <img src="/logo.png" alt="Defeyes Logo" class="footer-logo">
+                <p class="footer-copyright">&copy; 2026 Defeyes. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="mobile-menu.js" defer></script>
+    <script src="theme-toggle.js" defer></script>
+    <script src="auth-check.js" defer></script>
+</body>
+</html>
+
